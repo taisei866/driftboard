@@ -1,4 +1,4 @@
-/* 🌍 昼夜ワールドクロック */
+/* 昼夜ワールドクロック */
 (() => {
   const CITIES = [
     { n: "東京", tz: "Asia/Tokyo", lat: 35.68, lon: 139.77, cc: "JP" },
@@ -23,7 +23,7 @@
       ...CITIES.filter(c => Geo.dist(c.lat, c.lon, h.lat, h.lon) > 60)];
     $("#ck-cities").innerHTML = cities.map((c, i) => `
       <div class="city" data-i="${i}">
-        <div class="nm">${Geo.flag(c.cc)} ${esc(c.n)}${c.home ? " 🏠" : ""}</div>
+        <div class="nm">${Geo.flag(c.cc)}${esc(c.n)}${c.home ? `<span class="here">現在地</span>` : ""}</div>
         <div class="tm num"></div><div class="sub d1"></div><div class="sub d2"></div>
         <div class="wx"></div></div>`).join("");
     $("#ck-cities").onclick = e => { const c = e.target.closest("[data-i]"); if (!c) return; const i = +c.dataset.i; sel = sel === i ? -1 : i; update(); draw(); };
@@ -92,16 +92,16 @@
 
     // 都市
     const now = new Date(), fs = Math.max(10, Math.min(13, cw / 70));
-    g.font = `600 ${fs}px system-ui,sans-serif`; g.textBaseline = "middle";
+    g.font = `500 ${fs}px "Zen Kaku Gothic New",system-ui,sans-serif`; g.textBaseline = "middle";
     const boxes = [];
     cities.forEach((c, i) => {
       const x = X(c.lon), y = Y(c.lat), on = i === sel;
       if (on) {
         const ph = (Date.now() % 1600) / 1600;
-        g.strokeStyle = `rgba(57,208,255,${1 - ph})`; g.lineWidth = 2;
+        g.strokeStyle = `rgba(230,176,74,${1 - ph})`; g.lineWidth = 2;
         g.beginPath(); g.arc(x, y, 6 + ph * 16, 0, 7); g.stroke();
       }
-      g.fillStyle = c.home ? "#ffb547" : on ? "#ffffff" : "#39d0ff";
+      g.fillStyle = c.home ? "#e6b04a" : on ? "#ffffff" : "#8cb6d6";
       g.beginPath(); g.arc(x, y, c.home || on ? 4.5 : 3.2, 0, 7); g.fill();
       const label = `${c.n} ${Fmt.hm(now, c.tz)}`, tw = g.measureText(label).width, bh = fs * 1.5;
       const lx = x + tw + 14 > cw ? x - tw - 12 : x + 7;
@@ -114,7 +114,7 @@
       if (ly !== y) { g.strokeStyle = "rgba(255,255,255,.35)"; g.lineWidth = 1; g.beginPath(); g.moveTo(x, y); g.lineTo(lx - 3, ly); g.stroke(); }
       g.fillStyle = "rgba(0,0,0,.6)"; g.beginPath();
       g.roundRect ? g.roundRect(lx - 3, ly - bh / 2, tw + 6, bh, 4) : g.rect(lx - 3, ly - bh / 2, tw + 6, bh); g.fill();
-      g.fillStyle = c.home ? "#ffd59a" : "#e6edf7"; g.fillText(label, lx, ly + .5);
+      g.fillStyle = c.home ? "#f1cf8c" : "#ebe8e1"; g.fillText(label, lx, ly + .5);
     });
   }
 
@@ -132,12 +132,12 @@
     $("#ck-date").textContent = `${Fmt.full(now)} ・ ${App.home.name}`;
     const home = wx[0];
     const el = Sun.elev(App.home.lat, App.home.lon, sp);
-    let sunTxt = `太陽高度 <b class="num">${el.toFixed(1)}°</b>`;
+    let sunTxt = `太陽高度 <b class="mono">${el.toFixed(1)}°</b>`;
     if (home && home.daily) {
       const sr = home.daily.sunrise[0], ss = home.daily.sunset[0];
       const off = home.utc_offset_seconds * 1000, toD = s => new Date(Date.parse(s + "Z") - off);
       const srD = toD(sr), ssD = toD(ss);
-      sunTxt = `日の出 <b class="num">${sr.slice(11, 16)}</b> ・ 日の入り <b class="num">${ss.slice(11, 16)}</b><br>` +
+      sunTxt = `日の出 <b class="mono">${sr.slice(11, 16)}</b> ・ 日の入り <b class="mono">${ss.slice(11, 16)}</b><br>` +
         (now < srD ? `日の出まで ${Fmt.dur((srD - now) / 1000)}` : now < ssD ? `日の入りまで ${Fmt.dur((ssD - now) / 1000)}` : "今日の日の入りは終わりました") +
         ` ・ ${sunTxt}`;
     }
@@ -152,11 +152,11 @@
       const dl = dd === today ? "今日" : dd > today ? "明日" : "昨日";
       const diff = diffMin === 0 ? "時差なし" : `時差${diffMin > 0 ? "+" : "−"}${Math.floor(Math.abs(diffMin) / 60)}${Math.abs(diffMin) % 60 ? ":" + String(Math.abs(diffMin) % 60).padStart(2, "0") : ""}時間`;
       card.querySelector(".d1").textContent = `${dl} ・ ${c.home ? (day ? "昼" : e > -6 ? "薄明" : "夜") : diff}`;
-      card.querySelector(".d2").textContent = w && w.daily ? `↑${w.daily.sunrise[0].slice(11, 16)} ↓${w.daily.sunset[0].slice(11, 16)}` : (e > -6 && !day ? "薄明" : day ? "昼" : "夜");
+      card.querySelector(".d2").textContent = w && w.daily ? `日の出 ${w.daily.sunrise[0].slice(11, 16)} ・ 日の入 ${w.daily.sunset[0].slice(11, 16)}` : (e > -6 && !day ? "薄明" : day ? "昼" : "夜");
       const wxe = card.querySelector(".wx");
       if (w && w.current) {
-        const [ic, lb] = wxInfo(w.current.weather_code, w.current.is_day);
-        wxe.innerHTML = `<span>${ic}</span>${Math.round(w.current.temperature_2m)}° <small class="muted">${lb}</small>`;
+        const [icn, lb] = wxInfo(w.current.weather_code, w.current.is_day);
+        wxe.innerHTML = `${ic(icn)}${Math.round(w.current.temperature_2m)}°<small>${lb}</small>`;
       }
     });
   }

@@ -1,4 +1,4 @@
-/* ✈ フライトレーダー */
+/* フライトレーダー */
 (() => {
   const PLANE = '<svg viewBox="0 0 24 24"><path d="M12 1.6c.9 0 1.4.9 1.4 2V9l7.9 4.7v2.1l-7.9-2.4v5l2.3 1.8v1.7L12 21.1l-3.7.8v-1.7l2.3-1.8v-5l-7.9 2.4v-2.1L10.6 9V3.6c0-1.1.5-2 1.4-2z"/></svg>';
   const AIRLINES = {
@@ -28,7 +28,7 @@
   const color = d => {
     if (ground(d)) return "#8a96ab";
     const a = Math.min(Math.max(altFt(d) ?? 0, 0), 45000);
-    return `hsl(${30 + a / 45000 * 250} 90% ${a > 30000 ? 66 : 60}%)`;
+    return `hsl(${28 + a / 45000 * 187} ${45 + a / 45000 * 10}% ${60 + a / 45000 * 9}%)`;
   };
   const csOf = d => (d.flight || "").trim() || d.r || d.hex.toUpperCase();
   const isFlightNo = c => /^[A-Z]{3}\d{1,4}[A-Z]?$/.test(c);
@@ -57,9 +57,9 @@
     map.on("zoomend", () => planes.forEach(style));
     $("#fl-home").onclick = () => { follow = false; map.flyTo([H.lat, H.lon], 8); };
     const vb = $("#fl-voice");
-    const vtxt = () => { vb.textContent = voice ? "🔊 音声ON" : "🔇 音声OFF"; vb.classList.toggle("on", voice); };
+    const vtxt = () => { vb.innerHTML = ic(voice ? "i-vol" : "i-vol-off") + `<span>読み上げ ${voice ? "ON" : "OFF"}</span>`; vb.classList.toggle("on", voice); };
     vtxt();
-    vb.onclick = () => { voice = !voice; Store.set("flVoice", voice); vtxt(); toast(voice ? "真上を通過する機体を読み上げます" : "読み上げをオフにしました"); };
+    vb.onclick = () => { voice = !voice; Store.set("flVoice", voice); vtxt(); toast(voice ? "真上を通過する機体を読み上げます" : "読み上げをオフにしました"); if (voice) Data.say("読み上げをオンにしました"); };
     $("#fl-list").onclick = e => { const r = e.target.closest("[data-k]"); if (r) { select(r.dataset.k); const p = planes.get(r.dataset.k); if (p) map.panTo(pos(p)); } };
     $("#fl-alert").onclick = e => { const k = e.currentTarget.dataset.k; if (k) { select(k); const p = planes.get(k); if (p) map.panTo(pos(p)); } };
     setInterval(tick, 1000);
@@ -71,9 +71,9 @@
     try {
       const data = await api("/api/flights");
       update(data);
-      $("#fl-src").textContent = `${data.src} ・ ${Fmt.hms(new Date())}`;
+      $("#fl-src").textContent = `${Fmt.hms(new Date())} 更新 ・ ${data.src}`;
     } catch (e) {
-      $("#fl-stats").innerHTML = `<span style="color:var(--bad)">データ取得失敗</span><br><small class="muted">再試行中…</small>`;
+      $("#fl-stats").innerHTML = `<span style="color:var(--bad)">飛行機データを取得できません</span><br><small class="muted">${Data.hasProxy ? "提供元が混み合っています。自動で再試行します" : "中継サーバーが未設定です（README参照）"}</small>`;
     } finally {
       pollT = setTimeout(poll, visible ? 5000 : 15000);
     }
@@ -157,9 +157,9 @@
       if (!hi || (altFt(p.d) || 0) > (altFt(hi.d) || 0)) hi = p;
     }
     $("#fl-stats").innerHTML =
-      `機影 <b class="num">${air.length}</b> 機` +
-      (near ? `<br>最寄り <b class="num" style="font-size:14px">${esc(csOf(near.p.d))}</b> ${Fmt.n(near.dd, 1)}km` : "") +
-      (hi ? `<br>最高 ${esc(csOf(hi.d))} ${altTxt(hi.d)}` : "");
+      `<b>${air.length}</b> 機が飛行中` +
+      (near ? `<br><span class="muted">最寄り</span> ${esc(csOf(near.p.d))} ・ ${Fmt.n(near.dd, 1)}km` : "") +
+      (hi ? `<br><span class="muted">最高</span> ${esc(csOf(hi.d))} ・ ${altTxt(hi.d)}` : "");
   }
 
   function renderList() {
@@ -169,8 +169,8 @@
       return `<div class="fl-row ${sel === p.hex ? "sel" : ""}" data-k="${p.hex}">
         <div><span class="sw" style="background:${color(p.d)}"></span><b>${esc(csOf(p.d))}</b>
           <div class="rt">${esc(routeTxt(r) || airline(p.d) || p.d.t || "")}</div></div>
-        <div class="num">${altTxt(p.d)}</div><div class="num muted">${Fmt.n(dd, 0)}km</div></div>`;
-    }).join("") || `<div class="muted small" style="padding:10px">範囲内に機体がありません</div>`;
+        <div class="mono">${altTxt(p.d)}</div><div class="mono muted">${Fmt.n(dd, 0)}km</div></div>`;
+    }).join("") || `<div class="empty">半径約300km以内に、位置を送信している機体はありません。</div>`;
   }
 
   function select(k) {
@@ -200,23 +200,23 @@
     box.hidden = false;
     box.innerHTML = `
       <div class="fd">
-        ${ph.src ? `<img class="fd-photo" src="${esc(ph.src)}" alt="">` : `<div class="fd-photo" style="display:grid;place-items:center;font-size:30px">✈</div>`}
+        ${ph.src ? `<img class="fd-photo" src="${esc(ph.src)}" alt="">` : `<div class="fd-photo">${ic("i-plane", "lg")}</div>`}
         <div style="min-width:0">
           <div class="fd-top"><div><div class="fd-cs">${esc(csOf(d))}</div>
             <div class="fd-al">${esc(airline(d))}${d.t ? " ・ " + esc(d.t) : ""}${d.desc ? `<br>${esc(d.desc)}` : ""}</div></div>
-            <div class="fd-btns"><button class="chip ${follow ? "on" : ""}" id="fd-follow">${follow ? "追跡中" : "追跡"}</button><button class="chip" id="fd-close">✕</button></div></div>
+            <div class="fd-btns"><button class="btn sm ${follow ? "on" : ""}" id="fd-follow">${ic("i-follow", "sm")}${follow ? "追跡中" : "追跡"}</button><button class="btn sm icon" id="fd-close" aria-label="閉じる">${ic("i-x", "sm")}</button></div></div>
         </div>
       </div>
       ${rt}
       <div class="fd-grid">
-        <div><small>高度</small><b class="num">${altTxt(d)}</b></div>
-        <div><small>対地速度</small><b class="num">${d.gs != null ? Fmt.n(d.gs * 1.852) + "km/h" : "-"}</b></div>
-        <div><small>針路</small><b class="num">${d.track != null ? Math.round(d.track) + "° " + Geo.dir16(d.track) : "-"}</b></div>
-        <div><small>昇降</small><b class="num">${vr == null ? "-" : (vr > 64 ? "↑" : vr < -64 ? "↓" : "→") + Fmt.n(Math.abs(vr * 0.3048)) + "m/分"}</b></div>
-        <div><small>自宅から</small><b class="num">${Fmt.n(dd, 1)}km</b></div>
+        <div><small>高度</small><b class="mono">${altTxt(d)}</b></div>
+        <div><small>対地速度</small><b class="mono">${d.gs != null ? Fmt.n(d.gs * 1.852) + "km/h" : "-"}</b></div>
+        <div><small>針路</small><b class="mono">${d.track != null ? Math.round(d.track) + "° " + Geo.dir16(d.track) : "-"}</b></div>
+        <div><small>昇降</small><b class="mono">${vr == null ? "-" : (vr > 64 ? "↑" : vr < -64 ? "↓" : "→") + Fmt.n(Math.abs(vr * 0.3048)) + "m/分"}</b></div>
+        <div><small>ここから</small><b class="mono">${Fmt.n(dd, 1)}km</b></div>
         <div><small>方角</small><b>${Geo.dir16(brg)}</b></div>
         <div><small>機体記号</small><b>${esc(d.r || "-")}</b></div>
-        <div><small>スコーク</small><b class="num" style="${emerg(d) ? "color:var(--bad)" : ""}">${esc(d.squawk || "-")}</b></div>
+        <div><small>スコーク</small><b class="mono" style="${emerg(d) ? "color:var(--bad)" : ""}">${esc(d.squawk || "-")}</b></div>
       </div>
       ${ph.src ? `<div class="fd-credit">写真: <a href="${esc(ph.link)}" target="_blank" rel="noopener">© ${esc(ph.by || "")} / planespotters.net</a></div>` : ""}`;
     $("#fd-close").onclick = () => select(null);
@@ -229,7 +229,7 @@
       const d = p.d;
       if (emerg(d) && !alerted.has("e" + p.hex)) {
         alerted.set("e" + p.hex, now);
-        showAlert(p, `⚠ 緊急スコーク ${d.squawk}：${csOf(d)}`, `${altTxt(d)}・自宅から${Fmt.n(distOf(p), 0)}km`);
+        showAlert(p, `緊急コード ${d.squawk}：${csOf(d)}`, `${altTxt(d)}・ここから${Fmt.n(distOf(p), 0)}km`, true);
       }
       if (ground(d)) continue;
       const dd = distOf(p);
@@ -237,7 +237,7 @@
         alerted.set(p.hex, now);
         const r = route(p), aps = r && r.airports && r.airports.length >= 2 ? r.airports : null;
         const sub = [aps ? `${aps[0].city || aps[0].iata}発 ${aps[aps.length - 1].city || aps[aps.length - 1].iata}行き` : airline(d), altTxt(d)].filter(Boolean).join("・");
-        showAlert(p, `✈ 真上を通過中：${csOf(d)}`, sub);
+        showAlert(p, `真上を通過中：${csOf(d)}`, sub);
         if (voice) {
           const c = (d.flight || "").trim(), al = airline(d);
           const num = isFlightNo(c) ? c.slice(3) : "";
@@ -252,8 +252,8 @@
   }
 
   let alertT;
-  function showAlert(p, title, sub) {
-    const a = $("#fl-alert");
+  function showAlert(p, title, sub, bad) {
+    const a = $("#fl-alert"); a.classList.toggle("bad", !!bad);
     a.dataset.k = p.hex;
     a.innerHTML = `${esc(title)}<small>${esc(sub)}</small>`;
     a.hidden = false;

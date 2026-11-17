@@ -1,14 +1,16 @@
-/* 📻 ワールドラジオ */
+/* ワールドラジオ */
 (() => {
   const TAGS = [["", "すべて"], ["pop", "ポップ"], ["rock", "ロック"], ["jazz", "ジャズ"], ["classical", "クラシック"],
     ["news", "ニュース"], ["lofi", "Lo-Fi"], ["chillout", "チル"], ["electronic", "エレクトロ"], ["anime", "アニメ"],
     ["ambient", "アンビエント"], ["80s", "80年代"], ["hip hop", "ヒップホップ"], ["country", "カントリー"], ["reggae", "レゲエ"]];
   const KEEP = ["stationuuid", "name", "url_resolved", "url", "favicon", "tags", "country", "countrycode", "state", "language", "codec", "bitrate", "hls", "geo_lat", "geo_long"];
+  const PH = `<div class="ph">${ic("i-radio")}</div>`;
+  window.PH = PH;
   let regionJa; try { regionJa = new Intl.DisplayNames(["ja"], { type: "region" }); } catch {}
   const cName = (cc, fb) => { try { return (cc && regionJa?.of(cc.toUpperCase())) || fb || ""; } catch { return fb || ""; } };
 
   let map, pins, list = [], cur = Store.get("rdLast", null), mode = Store.get("rdMode", "world"),
-    cc = Store.get("rdCC", "JP"), tag = Store.get("rdTag", ""), favs = Store.get("rdFavs", []),
+    cc = Store.get("rdCC", (App.home.cc || (navigator.language.split("-")[1]) || "JP").toUpperCase()), tag = Store.get("rdTag", ""), favs = Store.get("rdFavs", []),
     vol = Store.get("rdVol", 0.8), auto = Store.get("rdAuto", 0), q = "";
   let fails = 0, ctx, analyser, freq, active = null, viz = false, token = 0, watchdog, startedAt = 0, playing = false, visible = false;
 
@@ -58,23 +60,23 @@
       const cs = (await api("/api/radio/countries")).filter(c => c.stationcount >= 5 && c.iso_3166_1);
       cs.sort((a, b) => (b.iso_3166_1 === "JP") - (a.iso_3166_1 === "JP") || b.stationcount - a.stationcount);
       $("#rd-country").innerHTML = cs.map(c =>
-        `<option value="${c.iso_3166_1}">${Geo.flag(c.iso_3166_1)} ${esc(cName(c.iso_3166_1, c.name))}（${c.stationcount}局）</option>`).join("");
+        `<option value="${c.iso_3166_1}">${esc(cName(c.iso_3166_1, c.name))}（${c.stationcount}局）</option>`).join("");
       $("#rd-country").value = cc;
-    } catch { $("#rd-country").innerHTML = `<option value="JP">🇯🇵 日本</option>`; }
+    } catch { $("#rd-country").innerHTML = `<option value="${cc}">${esc(cName(cc, cc))}</option>`; }
   }
 
   function syncUI() {
-    $$("#rd-modes .chip").forEach(b => b.classList.toggle("on", b.dataset.mode === mode));
+    $$("#rd-modes button").forEach(b => b.classList.toggle("on", b.dataset.mode === mode));
     $$("#rd-tagchips .chip").forEach(b => b.classList.toggle("on", b.dataset.tag === tag));
     $("#rd-country-row").hidden = mode !== "country";
     $("#rd-search-row").hidden = mode !== "search";
     $("#rd-tagchips").hidden = mode === "fav";
-    $("#rd-list-h").textContent = { world: "世界のランダムな局", country: "人気の局", fav: "お気に入り", search: "検索結果" }[mode];
+    $("#rd-list-h").textContent = { world: "世界のどこかの局", country: "人気の局", fav: "お気に入り", search: "検索結果" }[mode];
   }
 
   async function load() {
     const t = tag ? "&tag=" + encodeURIComponent(tag) : "";
-    $("#rd-list").innerHTML = `<div class="muted small" style="padding:10px">読み込み中…</div>`;
+    $("#rd-list").innerHTML = `<div class="empty">読み込み中…</div>`;
     try {
       let res;
       if (mode === "fav") res = favs;
@@ -97,7 +99,7 @@
     if (isFav(st)) favs = favs.filter(f => f.stationuuid !== st.stationuuid);
     else favs.unshift(slim(st));
     Store.set("rdFavs", favs);
-    toast(isFav(st) ? `⭐ ${st.name} をお気に入りに追加` : `お気に入りから外しました`);
+    toast(isFav(st) ? `「${st.name}」をお気に入りに追加しました` : `お気に入りから外しました`);
     if (mode === "fav") { list = favs.slice(); }
     render(); renderNow();
   }
@@ -106,11 +108,11 @@
     $("#rd-count").textContent = list.length ? `${list.length}局` : "";
     $("#rd-list").innerHTML = list.map((s, i) => `
       <div class="st-row ${cur && s.stationuuid === cur.stationuuid ? "on" : ""}" data-i="${i}">
-        ${s.favicon ? `<img src="${esc(s.favicon)}" alt="" loading="lazy" onerror="this.outerHTML='<div class=ph>📻</div>'">` : `<div class="ph">📻</div>`}
+        ${s.favicon ? `<img src="${esc(s.favicon)}" alt="" loading="lazy" onerror="this.outerHTML=PH">` : PH}
         <div style="min-width:0"><div class="nm">${esc(s.name)}</div>
-          <div class="sub">${Geo.flag(s.countrycode)} ${esc(cName(s.countrycode, s.country))}${s.state ? " ・ " + esc(s.state) : ""} ・ ${esc((s.tags || "").split(",").slice(0, 3).join(", "))}</div></div>
-        <button class="star" aria-label="お気に入り">${isFav(s) ? "★" : "☆"}</button>
-      </div>`).join("") || `<div class="muted small" style="padding:10px">${mode === "fav" ? "☆でお気に入りに追加できます" : mode === "search" ? "2文字以上入力してください" : "局が見つかりませんでした"}</div>`;
+          <div class="sub">${Geo.flag(s.countrycode)}${esc(cName(s.countrycode, s.country))}${s.state ? " ・ " + esc(s.state) : ""} ・ ${esc((s.tags || "").split(",").slice(0, 3).join(", "))}</div></div>
+        <button class="star ${isFav(s) ? "on" : ""}" aria-label="お気に入り">${ic("i-fav")}</button>
+      </div>`).join("") || `<div class="empty">${mode === "fav" ? "星のボタンを押した局がここに並びます。" : mode === "search" ? "2文字以上入力すると検索します。" : "局が見つかりませんでした。"}</div>`;
     pins.clearLayers();
     list.forEach(s => {
       if (s.geo_lat == null || s.geo_long == null) return;
@@ -127,18 +129,19 @@
     if (cur && cur.favicon) { img.hidden = false; ph.hidden = true; img.src = cur.favicon; img.onerror = () => { img.hidden = true; ph.hidden = false; }; }
     else { img.hidden = true; ph.hidden = false; }
     $("#rd-name").textContent = cur ? cur.name : "局を選んでください";
-    $("#rd-place").textContent = cur ? `${Geo.flag(cur.countrycode)} ${cName(cur.countrycode, cur.country)}${cur.state ? " ・ " + cur.state : ""}${cur.language ? " ・ " + cur.language : ""}` : "地図のピンや一覧から選べます";
+    $("#rd-place").innerHTML = cur ? `${Geo.flag(cur.countrycode)}${esc(cName(cur.countrycode, cur.country))}${cur.state ? " ・ " + esc(cur.state) : ""}${cur.language ? " ・ " + esc(cur.language) : ""}` : "地図のピンか、下の一覧から選べます";
     $("#rd-tags").innerHTML = cur ? (cur.tags || "").split(",").filter(Boolean).slice(0, 6).map(t => `<span>${esc(t)}</span>`).join("") : "";
-    $("#rd-star").textContent = isFav(cur) ? "★" : "☆";
-    $("#rd-play").textContent = playing ? "■" : "▶";
-    if (!playing) setState(cur ? "▶ で再生" : "");
+    $("#rd-star").classList.toggle("on", isFav(cur));
+    $("#rd-play").innerHTML = ic(playing ? "i-stop" : "i-play");
+    $("#rd-play").setAttribute("aria-label", playing ? "停止" : "再生");
+    if (!playing) setState(cur ? "再生ボタンで聴けます" : "");
   }
 
   function setState(t) { $("#rd-state").textContent = t; }
   function state() {
-    $("#rd-play").textContent = "■";
+    $("#rd-play").innerHTML = ic("i-stop");
     const q = [cur.codec, cur.bitrate ? cur.bitrate + "kbps" : ""].filter(Boolean).join(" ");
-    setState(`● 再生中 ${q}${viz ? "" : "（直接再生のため波形表示なし）"}`);
+    setState(`再生中 ・ ${q}${viz ? "" : " ・ この局は波形を表示できません"}`);
   }
 
   function ensureCtx() {
@@ -183,7 +186,7 @@
     playing = false; silence(); renderNow();
     setState("この局は再生できませんでした");
     fails++;
-    if ((mode === "world" || auto) && fails < 5) { toast("再生できない局だったので次へ進みます"); setTimeout(() => { if (my === token) next(); }, 1500); }
+    if ((mode === "world" || auto) && fails < 5) { toast("再生できない局だったため、次の局へ進みます"); setTimeout(() => { if (my === token) next(); }, 1500); }
     else if (fails >= 5) { fails = 0; token++; toast("再生できない局が続いたため停止しました。通信状態を確認してください", 5000); }
     else toast("この局は再生できませんでした");
   }
@@ -209,7 +212,7 @@
     if (live) analyser.getByteFrequencyData(freq);
     const n = bars.length, bw = w / n;
     const grad = g.createLinearGradient(0, h, 0, 0);
-    grad.addColorStop(0, "#39d0ff"); grad.addColorStop(.6, "#7c5cff"); grad.addColorStop(1, "#ffb547");
+    grad.addColorStop(0, "rgba(230,176,74,.55)"); grad.addColorStop(1, "#e6b04a");
     g.fillStyle = grad;
     for (let i = 0; i < n; i++) {
       const bin = Math.min(freq ? freq.length - 1 : 0, Math.floor(Math.pow(i / n, 1.6) * 100) + 1);
@@ -220,7 +223,7 @@
       g.globalAlpha = .9; g.beginPath(); g.roundRect ? g.roundRect(x, h - bh, bw - 3, bh, 2) : g.rect(x, h - bh, bw - 3, bh); g.fill();
     }
     g.globalAlpha = 1;
-    if (playing && !viz) { g.fillStyle = "rgba(138,150,171,.8)"; g.font = "12px sans-serif"; g.textAlign = "center"; g.fillText("この局は波形を表示できません（直接再生中）", w / 2, h / 2); }
+    if (playing && !viz) { g.fillStyle = "#646a74"; g.fillRect(0, h - 2, w, 1); }
   }
 
   App.reg("radio", {

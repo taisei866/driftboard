@@ -1,4 +1,4 @@
-/* ✨ 今夜の星空（プラネタリウム） */
+/* 今夜の星空（プラネタリウム） */
 (() => {
   const BODIES = [["Moon", "月", "#f4efd8"], ["Mercury", "水星", "#cdbca8"], ["Venus", "金星", "#fff2c2"], ["Mars", "火星", "#ff8a5c"],
     ["Jupiter", "木星", "#f3d9a8"], ["Saturn", "土星", "#ead79c"], ["Uranus", "天王星", "#9fe0e6"], ["Neptune", "海王星", "#8aa4ff"]];
@@ -31,6 +31,7 @@
     $("#sk-layers").onclick = e => { const b = e.target.closest("[data-l]"); if (!b) return; layers[b.dataset.l] = !layers[b.dataset.l]; Store.set("skLayers", layers); syncChips(); baseKey = ""; };
     syncChips();
     $$("#sk-dirs [data-f]").forEach(b => b.onclick = () => turnTo(+b.dataset.f));
+    syncDirs();
     const sl = $("#sk-slider");
     sl.oninput = () => { ff = false; offMin = +sl.value; syncTime(); };
     $("#sk-now").onclick = () => { ff = false; offMin = 0; syncTime(); };
@@ -55,17 +56,18 @@
   function syncChips() { $$("#sk-layers .chip").forEach(b => b.classList.toggle("on", !!layers[b.dataset.l])); }
   function syncTime() {
     $("#sk-slider").value = Math.max(-720, Math.min(720, offMin));
-    $("#sk-ff").textContent = ff ? "⏸ 停止" : "▶ 早送り";
+    $("#sk-ff").innerHTML = ff ? ic("i-pause") + "<span>止める</span>" : ic("i-ff") + "<span>早送り</span>";
     $("#sk-ff").classList.toggle("on", ff);
     $("#sk-now").classList.toggle("on", offMin === 0 && !ff);
     lastSide = 0;
   }
 
+  function syncDirs() { $$("#sk-dirs [data-f]").forEach(b => b.classList.toggle("on", Math.abs(((facing - +b.dataset.f + 540) % 360) - 180) < 23)); }
   let turnAnim;
   function turnTo(f) {
     cancelAnimationFrame(turnAnim);
     const from = facing, d = ((f - from + 540) % 360) - 180, t0 = performance.now();
-    const step = t => { const k = Math.min(1, (t - t0) / 500), e = k * k * (3 - 2 * k); facing = (from + d * e + 360) % 360; if (k < 1) turnAnim = requestAnimationFrame(step); else { turnAnim = null; Store.set("skFace", facing); } };
+    const step = t => { const k = Math.min(1, (t - t0) / 500), e = k * k * (3 - 2 * k); facing = (from + d * e + 360) % 360; if (k < 1) turnAnim = requestAnimationFrame(step); else { turnAnim = null; Store.set("skFace", facing); syncDirs(); } };
     turnAnim = requestAnimationFrame(step);
   }
 
@@ -201,12 +203,12 @@
     c.restore();
 
     // 地平線と方角
-    c.strokeStyle = "rgba(57,208,255,.5)"; c.lineWidth = 1.5; c.beginPath(); c.arc(cx, cy, R, 0, 7); c.stroke();
+    c.strokeStyle = "rgba(149,154,163,.45)"; c.lineWidth = 1; c.beginPath(); c.arc(cx, cy, R, 0, 7); c.stroke();
     c.textAlign = "center"; c.textBaseline = "middle";
     ["北", "北東", "東", "南東", "南", "南西", "西", "北西"].forEach((n, i) => {
       const rel = (i * 45 - facing) * D2R, big = i % 2 === 0;
       c.font = `${big ? 700 : 400} ${big ? 15 : 11}px system-ui,sans-serif`;
-      c.fillStyle = n === "北" ? "#ff7a7a" : big ? "#e6edf7" : "#8a96ab";
+      c.fillStyle = n === "北" ? "#e6b04a" : big ? "#ebe8e1" : "#646a74";
       c.fillText(n, cx + (R + 12) * Math.sin(rel), cy + (R + 12) * Math.cos(rel));
     });
     c.textBaseline = "alphabetic";
@@ -285,8 +287,8 @@
         if (al > 0) {
           const [x, y] = proj(al, az);
           g.fillStyle = "#fff"; g.beginPath(); g.arc(x, y, 3, 0, 7); g.fill();
-          g.strokeStyle = "#39d0ff"; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, 8 + Math.sin(t / 200) * 2, 0, 7); g.stroke();
-          g.fillStyle = "#39d0ff"; g.font = "700 12px system-ui,sans-serif"; g.fillText("ISS", x + 12, y + 4);
+          g.strokeStyle = "#e6b04a"; g.lineWidth = 1.2; g.beginPath(); g.arc(x, y, 7, 0, 7); g.stroke();
+          g.fillStyle = "#e6b04a"; g.font = "700 12px system-ui,sans-serif"; g.fillText("ISS", x + 12, y + 4);
           bodies.push({ kind: "iss", ja: "国際宇宙ステーション", x, y, alt: al, az });
         }
       }
@@ -295,13 +297,13 @@
     const all = bodies.concat(objs);
     if (sel) {
       const o = all.find(o => o.kind === sel.kind && (o.b ? o.b === sel.b : o.i === sel.i));
-      if (o) { g.strokeStyle = "#ffb547"; g.lineWidth = 2; g.beginPath(); g.arc(o.x, o.y, 14, 0, 7); g.stroke(); sel.cur = o; }
+      if (o) { g.strokeStyle = "#e6b04a"; g.lineWidth = 1.5; g.beginPath(); g.arc(o.x, o.y, 14, 0, 7); g.stroke(); sel.cur = o; }
     }
     g.restore();
     curObjs = all;
 
-    $("#sk-when").innerHTML = `<b class="num">${Fmt.md(date)} ${Fmt.hm(date)}</b>${offMin ? `<small class="muted">（${offMin > 0 ? "+" : "−"}${Fmt.dur(Math.abs(offMin) * 60)}）</small>` : ""}<br>` +
-      `<small class="muted">${sun.alt > 0 ? "☀ 昼間（星は実際には見えません）" : sun.alt > -12 ? "🌆 薄明" : "🌌 夜"} ・ ${esc(H.name)}の空</small>`;
+    $("#sk-when").innerHTML = `<b class="mono">${Fmt.md(date)} ${Fmt.hm(date)}</b>${offMin ? `<small class="muted">（${offMin > 0 ? "+" : "−"}${Fmt.dur(Math.abs(offMin) * 60)}）</small>` : ""}<br>` +
+      `<small class="muted">${esc(H.name)}の空 ・ ${sun.alt > 0 ? "昼間（実際には星は見えません）" : sun.alt > -12 ? "薄明" : "夜"}</small>`;
     if (Date.now() - lastSide > (ff ? 1500 : 30000)) { lastSide = Date.now(); side(date); }
     if (sel && sel.cur) info(sel.cur, date);
   }
@@ -317,7 +319,7 @@
       facing = (sf + dx / R * 70 + 360) % 360;
     });
     const up = e => {
-      if (!dragging) return; dragging = false; Store.set("skFace", facing);
+      if (!dragging) return; dragging = false; Store.set("skFace", facing); syncDirs();
       if (moved < 6) {
         const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
         let best = null, bd = 26;
@@ -340,19 +342,19 @@
     if (o.kind === "star") {
       const n = sky.names[o.ni], cn = sky.con[n[2]];
       h = `<div class="sk-name">${esc(n[0])}</div><div class="muted small">${esc(n[1] && n[1] !== n[0] ? n[1] + " ・ " : "")}${esc(cn ? cn.ja : "")} ${esc(n[3] || "")}</div>
-        <div class="fd-grid"><div><small>明るさ</small><b class="num">${o.mag.toFixed(2)}等</b></div>
-        <div><small>高度</small><b class="num">${o.alt.toFixed(1)}°</b></div><div><small>方角</small><b>${Geo.dir16(o.az)}</b></div></div>`;
+        <div class="fd-grid"><div><small>明るさ</small><b class="mono">${o.mag.toFixed(2)}等</b></div>
+        <div><small>高度</small><b class="mono">${o.alt.toFixed(1)}°</b></div><div><small>方角</small><b>${Geo.dir16(o.az)}</b></div></div>`;
     } else if (o.kind === "iss") {
-      h = `<div class="sk-name">🛰 ${o.ja}</div><div class="fd-grid"><div><small>高度</small><b class="num">${o.alt.toFixed(1)}°</b></div><div><small>方角</small><b>${Geo.dir16(o.az)}</b></div></div>`;
+      h = `<div class="sk-name">${o.ja}</div><div class="fd-grid"><div><small>高度</small><b class="mono">${o.alt.toFixed(1)}°</b></div><div><small>方角</small><b>${Geo.dir16(o.az)}</b></div></div>`;
     } else {
       const rs = riseSet(o.b, date), mag = Astronomy.Illumination(o.b, date);
-      const extra = o.b === "Moon" ? `<div><small>輝面比</small><b class="num">${Math.round(mag.phase_fraction * 100)}%</b></div><div><small>距離</small><b class="num">${Fmt.n(o.dist * 149597870.7)}km</b></div>`
-        : `<div><small>明るさ</small><b class="num">${mag.mag.toFixed(1)}等</b></div><div><small>距離</small><b class="num">${o.dist.toFixed(2)}AU</b></div>`;
+      const extra = o.b === "Moon" ? `<div><small>輝面比</small><b class="mono">${Math.round(mag.phase_fraction * 100)}%</b></div><div><small>距離</small><b class="mono">${Fmt.n(o.dist * 149597870.7)}km</b></div>`
+        : `<div><small>明るさ</small><b class="mono">${mag.mag.toFixed(1)}等</b></div><div><small>距離</small><b class="mono">${o.dist.toFixed(2)}AU</b></div>`;
       h = `<div class="sk-name">${o.ja}</div><div class="fd-grid">${extra}
-        <div><small>高度</small><b class="num">${o.alt.toFixed(1)}°</b></div><div><small>方角</small><b>${Geo.dir16(o.az)}</b></div>
-        <div><small>次の出</small><b class="num">${rs.rise ? Fmt.hm(rs.rise) : "-"}</b></div><div><small>次の入り</small><b class="num">${rs.set ? Fmt.hm(rs.set) : "-"}</b></div></div>`;
+        <div><small>高度</small><b class="mono">${o.alt.toFixed(1)}°</b></div><div><small>方角</small><b>${Geo.dir16(o.az)}</b></div>
+        <div><small>次の出</small><b class="mono">${rs.rise ? Fmt.hm(rs.rise) : "-"}</b></div><div><small>次の入り</small><b class="mono">${rs.set ? Fmt.hm(rs.set) : "-"}</b></div></div>`;
     }
-    box.innerHTML = h + `<button class="chip" id="sk-x" style="margin-top:8px">閉じる</button>`;
+    box.innerHTML = h + `<button class="btn sm" id="sk-x" style="margin-top:10px">${ic("i-x", "sm")}閉じる</button>`;
     $("#sk-x").onclick = () => { sel = null; box.hidden = true; };
   }
 
@@ -366,13 +368,13 @@
     const moonNow = bodyAltAz("Moon", date);
     const phName = ph < 10 || ph > 350 ? "新月" : ph < 80 ? "三日月〜" : ph < 100 ? "上弦" : ph < 170 ? "満ちていく月" : ph < 190 ? "満月" : ph < 260 ? "欠けていく月" : ph < 280 ? "下弦" : "有明月";
     $("#sk-tonight").innerHTML = `
-      <div class="sk-kv"><span>日の入り</span><b class="num">${sset ? Fmt.hm(sset) : "-"}</b></div>
-      <div class="sk-kv"><span>星が見え始める（薄明終了）</span><b class="num">${ns ? (ns === date ? "すでに暗い" : Fmt.hm(ns)) : "-"}</b></div>
-      <div class="sk-kv"><span>空が明るくなり始める</span><b class="num">${ne ? Fmt.hm(ne) : "-"}</b></div>
-      <div class="sk-kv"><span>日の出</span><b class="num">${srise ? Fmt.hm(srise) : "-"}</b></div>
+      <div class="sk-kv"><span>日の入り</span><b class="mono">${sset ? Fmt.hm(sset) : "-"}</b></div>
+      <div class="sk-kv"><span>星が見え始める（薄明終了）</span><b class="mono">${ns ? (ns === date ? "すでに暗い" : Fmt.hm(ns)) : "-"}</b></div>
+      <div class="sk-kv"><span>空が明るくなり始める</span><b class="mono">${ne ? Fmt.hm(ne) : "-"}</b></div>
+      <div class="sk-kv"><span>日の出</span><b class="mono">${srise ? Fmt.hm(srise) : "-"}</b></div>
       <div class="sk-kv"><span>月</span><b>${phName}（${Math.round(ill * 100)}%）</b></div>
-      <div class="sk-kv"><span>月の出／入り</span><b class="num">${mrs.rise ? Fmt.hm(mrs.rise) : "-"} ／ ${mrs.set ? Fmt.hm(mrs.set) : "-"}</b></div>
-      <div class="note small">${ill > .7 && moonNow.alt > 0 ? "🌕 月明かりが強く、暗い星や天の川は見えにくい夜です。" : ill < .3 || moonNow.alt < 0 ? "🌑 月明かりが弱く、星空観察に向いています。" : "🌓 月明かりはそこそこ。明るい星や惑星は十分楽しめます。"}</div>`;
+      <div class="sk-kv"><span>月の出／入り</span><b class="mono">${mrs.rise ? Fmt.hm(mrs.rise) : "-"} ／ ${mrs.set ? Fmt.hm(mrs.set) : "-"}</b></div>
+      <div class="note small">${ill > .7 && moonNow.alt > 0 ? "月明かりが強く、暗い星や天の川は見えにくい夜です。" : ill < .3 || moonNow.alt < 0 ? "月明かりが弱く、星空観察に向いています。" : "月明かりはそこそこ。明るい星や惑星は十分楽しめます。"}</div>`;
 
     // 惑星：今夜の見頃（暗い時間帯で最も高く昇る時刻）
     const rows = BODIES.slice(1).map(([b, ja, col]) => {
@@ -386,8 +388,8 @@
     }).sort((a, b) => (b.nowVis - a.nowVis) || (b.good - a.good) || a.mag - b.mag);
     $("#sk-planets").innerHTML = rows.map(r => `
       <div class="sk-pl"><span class="sw" style="background:${r.col}"></span>
-        <div><b>${r.ja}</b> <small class="muted num">${r.mag.toFixed(1)}等</small>
-          <div class="small muted">${r.nowVis ? `<span style="color:var(--ok)">● いま見える</span> ${Geo.dir16(r.now.az)} 高度${Math.round(r.now.alt)}°` :
+        <div><b>${r.ja}</b> <small class="muted mono">${r.mag.toFixed(1)}等</small>
+          <div class="small muted">${r.nowVis ? `<span style="color:var(--ok)">いま見えます</span> ${Geo.dir16(r.now.az)} 高度${Math.round(r.now.alt)}°` :
             r.good ? `見頃 ${Fmt.hm(r.best.t)}頃 ${Geo.dir16(r.best.az)}の空 高度${Math.round(r.best.alt)}°` : "今夜は見えにくい"}</div></div></div>`).join("");
   }
 

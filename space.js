@@ -1,4 +1,4 @@
-/* 🛰 宇宙ダッシュボード */
+/* 宇宙ダッシュボード */
 (() => {
   const SUN_IMGS = [
     ["https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_0193.jpg", "SDO AIA 193Å ・ コロナ"],
@@ -13,8 +13,8 @@
     H = App.home;
     map = darkMap("issmap", { minZoom: 1, maxZoom: 6 }).setView([20, H.lon], 1);
     L.marker([H.lat, H.lon], { icon: L.divIcon({ className: "", html: '<div class="home-dot"></div>', iconSize: [14, 14], iconAnchor: [7, 7] }), interactive: false }).addTo(map);
-    issM = L.marker([0, 0], { icon: L.divIcon({ className: "", html: '<div class="iss-ic">🛰</div>', iconSize: [30, 30], iconAnchor: [15, 15] }) }).addTo(map);
-    foot = L.circle([0, 0], { radius: 1, color: "#39d0ff", weight: 1, opacity: .6, fillOpacity: .08, interactive: false }).addTo(map);
+    issM = L.marker([0, 0], { icon: L.divIcon({ className: "", html: '<div class="iss-ic"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }) }).addTo(map);
+    foot = L.circle([0, 0], { radius: 1, color: "#e6b04a", weight: 1, opacity: .5, fillOpacity: .06, interactive: false }).addTo(map);
     $("#sun-dots").innerHTML = SUN_IMGS.map(() => "<i></i>").join("");
     rotateSun();
     setInterval(rotateSun, 9000);
@@ -69,9 +69,9 @@
 
   function renderPasses() {
     $("#iss-passes").innerHTML = passes.map(p => `
-      <div class="ps"><span class="num">${Fmt.md(p.start)} ${Fmt.hm(p.start)}</span>
-        <span>${Geo.dir16(p.sAz)} → ${Geo.dir16(p.eAz)} ・ 最大仰角 <b class="num">${Math.round(p.max)}°</b> ・ ${Math.round((p.end - p.start) / 60000)}分</span>
-        <span class="badge ${p.vis ? "ok" : ""}">${p.vis ? "肉眼◎" : "見えない"}</span></div>`).join("")
+      <div class="ps"><span class="mono">${Fmt.md(p.start)} ${Fmt.hm(p.start)}</span>
+        <span>${Geo.dir16(p.sAz)} → ${Geo.dir16(p.eAz)} ・ 最大仰角 <b class="mono">${Math.round(p.max)}°</b> ・ ${Math.round((p.end - p.start) / 60000)}分</span>
+        <span class="badge ${p.vis ? "ok" : ""}">${p.vis ? "肉眼で見える" : "見えない"}</span></div>`).join("")
       || `<div class="muted small">3日以内に高く昇る通過はありません</div>`;
   }
 
@@ -90,8 +90,8 @@
       return out;
     };
     const segs = [split(-50, 0), split(0, 95)];
-    segs[0].forEach(s => trackL.push(L.polyline(s, { color: "#8a96ab", weight: 1.5, opacity: .5, dashArray: "3 5", interactive: false }).addTo(map)));
-    segs[1].forEach(s => trackL.push(L.polyline(s, { color: "#39d0ff", weight: 2, opacity: .85, interactive: false }).addTo(map)));
+    segs[0].forEach(s => trackL.push(L.polyline(s, { color: "#959aa3", weight: 1.2, opacity: .45, dashArray: "3 5", interactive: false }).addTo(map)));
+    segs[1].forEach(s => trackL.push(L.polyline(s, { color: "#e6b04a", weight: 1.8, opacity: .85, interactive: false }).addTo(map)));
   }
 
   let tickN = 0;
@@ -108,16 +108,16 @@
         $("#iss-alt").textContent = `${Fmt.n(p.h)}km`;
         $("#iss-spd").textContent = `${Fmt.n(p.spd)}km/h`;
         const lit = sunlit(p.eci, now);
-        $("#iss-light").textContent = lit ? "☀ 日照中" : "🌑 地球の影の中";
+        $("#iss-light").textContent = lit ? "日照中" : "地球の影の中";
         if (tickN % 60 === 1) { drawTrack(); map.panTo([20, p.lon], { animate: true }); }
         const { el, az } = look(p);
         if (el > 0) {
-          $("#iss-next").innerHTML = `🔭 <b>いま${esc(H.name)}の空にISSがいます！</b><br>${Geo.dir16(az)}の方角、仰角 <b class="num">${Math.round(el)}°</b>${lit && Sun.elev(H.lat, H.lon) < -6 ? " ・ 肉眼で見えるはずです" : ""}`;
+          $("#iss-next").innerHTML = `<b>いま${esc(H.name)}の空にISSがいます</b><br>${Geo.dir16(az)}の方角、仰角 <b class="mono">${Math.round(el)}°</b>${lit && Sun.elev(H.lat, H.lon) < -6 ? " ・ 肉眼で見えるはずです" : ""}`;
         } else {
           if (passes.length && passes[0].end < now) computePasses();
           const v = passes.find(x => x.vis && x.end > now);
           $("#iss-next").innerHTML = v
-            ? `次に肉眼で見えるISS：<b>${Fmt.md(v.start)} ${Fmt.hm(v.start)}</b><br>${Geo.dir16(v.sAz)}から${Geo.dir16(v.eAz)}へ ・ 最大仰角 ${Math.round(v.max)}°（${Fmt.hm(v.maxT)}頃 ${Geo.dir16(v.mAz)}）<br>あと <b class="num">${Fmt.dur((v.start - now) / 1000)}</b>`
+            ? `次に肉眼で見える通過：<b>${Fmt.md(v.start)} ${Fmt.hm(v.start)}</b><br>${Geo.dir16(v.sAz)}から${Geo.dir16(v.eAz)}へ ・ 最大仰角 ${Math.round(v.max)}°（${Fmt.hm(v.maxT)}頃 ${Geo.dir16(v.mAz)}）<br>あと <b class="mono">${Fmt.dur((v.start - now) / 1000)}</b>`
             : `3日以内に${esc(H.name)}から肉眼で見えるISSの通過はありません（昼間か、ISSが地球の影に入るため）`;
         }
       }
@@ -130,7 +130,7 @@
     catch { toast("宇宙データの取得に失敗しました"); }
   }
 
-  const kpColor = k => k >= 7 ? "#f87171" : k >= 5 ? "#fb923c" : k >= 4 ? "#fbbf24" : "#4ade80";
+  const kpColor = k => k >= 7 ? "#e28673" : k >= 5 ? "#e39a5c" : k >= 4 ? "#e6b04a" : "#86c79a";
   function render() {
     const kp = data.kp;
     if (kp && kp.observed.length) {
@@ -141,11 +141,12 @@
       const bar = (r, cls) => `<div class="${cls}" title="${r.t} Kp${r.kp}" style="height:${Math.max(2, r.kp / 9 * 100)}%;background:${kpColor(r.kp)}"></div>`;
       $("#kp-chart").innerHTML = obsv.map((r, i) => bar(r, i === obsv.length - 1 ? "nowbar" : "")).join("") + fc.map(r => bar(r, "fc")).join("");
       const mx = Math.max(now, ...fc.map(r => r.kp || 0));
-      const msg = mx >= 8 ? "🟥 非常に強い磁気嵐の予報。普段オーロラが見えない中緯度でも、極側の低い空に赤いオーロラが現れる可能性があります。"
-        : mx >= 7 ? "🟧 強い磁気嵐の予報。中緯度でも、カメラの長時間露光なら極側の低空に写る可能性があります。"
-        : mx >= 5 ? "🟨 磁気嵐レベル。高緯度の地域ではオーロラが活発になります。"
-        : "🟩 静かな状態です。";
+      const msg = mx >= 8 ? "非常に強い磁気嵐の予報。普段オーロラが見えない中緯度でも、極側の低い空に赤いオーロラが現れる可能性があります。"
+        : mx >= 7 ? "強い磁気嵐の予報。中緯度でも、カメラの長時間露光なら極側の低空に写る可能性があります。"
+        : mx >= 5 ? "磁気嵐レベル。高緯度の地域ではオーロラが活発になります。"
+        : "静かな状態です。";
       const au = data.aurora;
+      $("#aurora").style.borderLeftColor = kpColor(mx);
       $("#aurora").innerHTML = msg + (au ? `<br><small class="muted">NOAA OVATION予報 ・ ${esc(H.name)}上空 ${au.here}% ・ 周辺の最大 ${au.region}%</small>` : "");
     }
     const w = data.wind;
@@ -192,7 +193,7 @@
     nxt.src = e.url;
     const d = new Date(e.date.replace(" ", "T") + "Z"), la = e.lat, lo = e.lon;
     $("#earth-cap").innerHTML = `${Fmt.md(d)} ${Fmt.hm(d)}・ 中心 ${la == null ? "" : `${la >= 0 ? "北緯" : "南緯"}${Math.abs(la).toFixed(0)}° ${lo >= 0 ? "東経" : "西経"}${Math.abs(lo).toFixed(0)}°`}
-      <span class="num">（${eI % eList.length + 1}/${eList.length}）</span><br>NASA DSCOVR衛星のEPICカメラが約150万km先から撮影した地球です`;
+      <span class="mono">（${eI % eList.length + 1}/${eList.length}）</span><br>NASA DSCOVR衛星のEPICカメラが約150万km先から撮影した地球です`;
     eI++;
   }
 

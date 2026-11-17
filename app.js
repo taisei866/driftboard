@@ -3,6 +3,7 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const D2R = Math.PI / 180, R2D = 180 / Math.PI;
+const ic = (id, cls = "") => `<svg class="ic ${cls}"><use href="#${id}"/></svg>`;
 
 const Store = {
   get(k, d) { try { const v = localStorage.getItem("db." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
@@ -66,7 +67,7 @@ const Geo = {
     const n = ["北", "北北東", "北東", "東北東", "東", "東南東", "南東", "南南東", "南", "南南西", "南西", "西南西", "西", "西北西", "北西", "北北西"];
     return n[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16];
   },
-  flag(cc) { return cc && cc.length === 2 ? String.fromCodePoint(...[...cc.toUpperCase()].map(c => 0x1F1A5 + c.charCodeAt(0))) : "🌐"; }
+  flag(cc) { return cc && cc.length === 2 ? `<span class="cc">${cc.toUpperCase()}</span>` : ""; }
 };
 
 /* ---- 太陽の位置（地心直下点） ---- */
@@ -93,18 +94,17 @@ const Sun = {
 /* ---- 天気コード ---- */
 function wxInfo(code, isDay = 1) {
   const c = Number(code);
-  if (c === 0) return [isDay ? "☀️" : "🌙", "快晴"];
-  if (c === 1) return [isDay ? "🌤" : "🌙", "晴れ"];
-  if (c === 2) return ["⛅", "薄曇り"];
-  if (c === 3) return ["☁️", "曇り"];
-  if (c === 45 || c === 48) return ["🌫", "霧"];
-  if (c >= 51 && c <= 57) return ["🌦", "霧雨"];
-  if (c >= 61 && c <= 67) return ["🌧", "雨"];
-  if (c >= 71 && c <= 77) return ["🌨", "雪"];
-  if (c >= 80 && c <= 82) return ["🌦", "にわか雨"];
-  if (c === 85 || c === 86) return ["🌨", "にわか雪"];
-  if (c >= 95) return ["⛈", "雷雨"];
-  return ["🌡", "-"];
+  if (c === 0) return [isDay ? "w-sun" : "w-moon", "快晴"];
+  if (c === 1) return [isDay ? "w-sun" : "w-moon", "晴れ"];
+  if (c === 2) return ["w-partly", "薄曇り"];
+  if (c === 3) return ["w-cloud", "曇り"];
+  if (c === 45 || c === 48) return ["w-fog", "霧"];
+  if (c >= 51 && c <= 67) return ["w-rain", c <= 57 ? "霧雨" : "雨"];
+  if (c >= 71 && c <= 77) return ["w-snow", "雪"];
+  if (c >= 80 && c <= 82) return ["w-rain", "にわか雨"];
+  if (c === 85 || c === 86) return ["w-snow", "にわか雪"];
+  if (c >= 95) return ["w-storm", "雷雨"];
+  return ["w-cloud", "-"];
 }
 
 /* ---- 地図 ---- */
@@ -126,6 +126,8 @@ const App = {
   async start() {
     if (!this.home.tz) this.home.tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Tokyo";
     Setup.init();
+    $("#loc-name").textContent = this.home.unset ? "場所を設定" : this.home.name;
+    $("#loc-btn").onclick = () => Setup.open(false);
     if (this.home.unset) Setup.open(true);
     $$("#tabs button").forEach(b => b.onclick = () => this.show(b.dataset.tab));
     this.show(Store.get("tab", "flight"));
@@ -142,7 +144,6 @@ const App = {
     if (prev && prev.hide) prev.hide();
     $$(".tab").forEach(t => t.classList.toggle("on", t.id === "tab-" + name));
     $$("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === name));
-    $("#tab-title").textContent = this.titles[name];
     this.cur = name; Store.set("tab", name);
     const m = this.mods[name];
     if (!m._init) { m._init = true; m.init(); }

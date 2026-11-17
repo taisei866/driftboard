@@ -3,14 +3,29 @@ const Data = (() => {
   const mem = new Map();
   const FLIGHT_NM = 160;
 
-  async function j(url, opt = {}, ms = 15000) {
-    const ac = new AbortController(), t = setTimeout(() => ac.abort(), ms);
-    try {
-      const r = await fetch(url, Object.assign({ signal: ac.signal }, opt));
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      return await r.json();
-    } finally { clearTimeout(t); }
+  /* 中継サーバー（Cloudflare Worker）：ブラウザから直接アクセスできない提供元に使う */
+  const PROXY = ((window.DRIFT && DRIFT.proxy) || "").replace(/\/+$/, "");
+  const PROXY_ONLY = /(^|\.)(adsb\.lol|airplanes\.live|adsb\.fi)$/;   // CORS非対応のため常に中継
+  const viaProxy = url => `${PROXY}/?url=${encodeURIComponent(url)}`;
+  async function req(url, opt = {}, ms = 15000) {
+    const host = new URL(url).hostname;
+    const go = async u => {
+      const ac = new AbortController(), t = setTimeout(() => ac.abort(), ms);
+      try {
+        const r = await fetch(u, Object.assign({ signal: ac.signal }, opt));
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r;
+      } finally { clearTimeout(t); }
+    };
+    if (PROXY && PROXY_ONLY.test(host)) return go(viaProxy(url));
+    try { return await go(url); }
+    catch (e) {
+      // CORSやネットワークで弾かれた場合（TypeError）だけ中継で再挑戦
+      if (PROXY && e instanceof TypeError) return go(viaProxy(url));
+      throw e;
+    }
   }
+  const j = async (url, opt, ms) => (await req(url, opt, ms)).json();
   async function cached(key, ttl, fn) {
     const hit = mem.get(key);
     if (hit && Date.now() - hit.t < ttl * 1000) return hit.v;
@@ -26,7 +41,7 @@ const Data = (() => {
   const num = v => { const n = parseFloat(v); return isNaN(n) ? null : n; };
   const rows = d => d && Array.isArray(d[0]) ? d.slice(1).map(r => Object.fromEntries(d[0].map((k, i) => [k, r[i]]))) : (d || []);
 
-  /* ---------- ✈ フライト ---------- */
+  /* ---------- フライト ---------- */
   const AC_KEYS = ["hex", "flight", "r", "t", "desc", "ownOp", "lat", "lon", "alt_baro", "alt_geom", "gs", "track", "baro_rate", "geom_rate", "squawk", "category", "seen", "seen_pos", "emergency"];
   function flights() {
     const { lat, lon } = H();
@@ -94,7 +109,7 @@ const Data = (() => {
     ]).catch(() => ({})));
   }
 
-  /* ---------- 📻 ラジオ（Radio Browser） ---------- */
+  /* ---------- ラジオ（Radio Browser） ---------- */
   const RB = ["de1", "de2", "fi1", "nl1", "at1"];
   let rbHost = 0;
   async function rb(path) {
@@ -117,7 +132,7 @@ const Data = (() => {
       .map(s => Object.fromEntries(ST_KEYS.map(k => [k, s[k]])));
   }
 
-  /* ---------- 🛰 宇宙 ---------- */
+  /* ---------- 宇宙 ---------- */
   async function space() {
     const kp = async () => {
       const [o, f] = await Promise.all([
@@ -164,9 +179,7 @@ const Data = (() => {
     if (saved && Date.now() - saved.t < 6 * 3600e3) return saved.v;
     const v = await first([
       async () => {
-        const r = await fetch("https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=TLE");
-        if (!r.ok) throw new Error(r.status);
-        const t = (await r.text()).trim().split(/\r?\n/);
+        const t = (await (await req("https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=TLE")).text()).trim().split(/\r?\n/);
         return { l1: t.find(x => x.startsWith("1 ")).trim(), l2: t.find(x => x.startsWith("2 ")).trim() };
       },
       async () => { const d = await j("https://tle.ivanstanojevic.me/api/tle/25544"); return { l1: d.line1, l2: d.line2 }; }
@@ -212,5 +225,5 @@ const Data = (() => {
     }
     throw new Error("unknown " + p);
   }
-  return { handle, say };
+  return { handle, say, hasProxy: !!PROXY };
 })();
