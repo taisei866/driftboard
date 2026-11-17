@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#05070d">
+<title>Driftboard</title>
+<meta name="description" content="フライトレーダー・世界のラジオ・宇宙・星空・昼夜ワールドクロックを、ぼーっと眺めるためのダッシュボード">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="lib/leaflet.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header id="top">
+  <div class="brand"><span class="logo"></span>DRIFTBOARD<small id="tab-title"></small></div>
+  <div class="top-right">
+    <span id="net" class="dot" title="通信状態"></span>
+    <span id="hdr-clock" class="num"></span>
+    <button id="set-btn" class="icon-btn" aria-label="場所の設定">📍</button>
+    <button id="amb-btn" class="icon-btn" aria-label="アンビエントモード">🌙</button>
+    <button id="fs" class="icon-btn" aria-label="全画面">⛶</button>
+  </div>
+</header>
+
+<main>
+  <!-- ===== フライト ===== -->
+  <section id="tab-flight" class="tab">
+    <div class="fl-wrap">
+      <div class="fl-mapbox">
+        <div id="fmap" class="map"></div>
+        <div class="fl-hud">
+          <div id="fl-stats" class="hud-card">読み込み中…</div>
+          <div class="hud-btns">
+            <button id="fl-home" class="chip">⌂ 自宅</button>
+            <button id="fl-voice" class="chip">🔇 音声OFF</button>
+          </div>
+        </div>
+        <div id="fl-alert" class="alert" hidden></div>
+        <div class="legend"><span>低</span><i></i><span>高</span></div>
+      </div>
+      <aside class="fl-side">
+        <div id="fl-detail" class="panel" hidden></div>
+        <div class="panel fl-listbox">
+          <div class="panel-h">近くの機体 <small id="fl-src"></small></div>
+          <div id="fl-list" class="list"></div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ===== ラジオ ===== -->
+  <section id="tab-radio" class="tab">
+    <div class="rd-wrap">
+      <div class="rd-left">
+        <div class="panel now">
+          <div class="now-main">
+            <div class="fav-wrap"><img id="rd-fav" alt=""><span id="rd-fav-ph">📻</span></div>
+            <div class="now-info">
+              <div id="rd-name" class="now-name">局を選んでください</div>
+              <div id="rd-place" class="muted"></div>
+              <div id="rd-tags" class="tags"></div>
+            </div>
+          </div>
+          <canvas id="rd-viz"></canvas>
+          <div class="now-ctl">
+            <button id="rd-play" class="big-btn" aria-label="再生">▶</button>
+            <button id="rd-next" class="icon-btn" aria-label="次の局">⏭</button>
+            <button id="rd-star" class="icon-btn" aria-label="お気に入り">☆</button>
+            <input id="rd-vol" type="range" min="0" max="1" step="0.01" value="0.8" aria-label="音量">
+            <select id="rd-auto" aria-label="自動切替">
+              <option value="0">自動切替なし</option>
+              <option value="3">3分ごと</option>
+              <option value="10">10分ごと</option>
+              <option value="30">30分ごと</option>
+            </select>
+          </div>
+          <div id="rd-state" class="muted small"></div>
+        </div>
+        <div class="panel rd-filter">
+          <div class="chips" id="rd-modes">
+            <button class="chip" data-mode="world">🎲 世界ランダム</button>
+            <button class="chip" data-mode="country">🏳 国から</button>
+            <button class="chip" data-mode="fav">⭐ お気に入り</button>
+            <button class="chip" data-mode="search">🔎 検索</button>
+          </div>
+          <div class="row" id="rd-country-row"><select id="rd-country"></select></div>
+          <div class="row" id="rd-search-row"><input id="rd-q" type="search" placeholder="局名で検索（例: jazz, NHK, BBC）"></div>
+          <div class="chips small" id="rd-tagchips"></div>
+        </div>
+        <div class="panel rd-listbox">
+          <div class="panel-h"><span id="rd-list-h">局一覧</span><small id="rd-count"></small></div>
+          <div id="rd-list" class="list"></div>
+        </div>
+      </div>
+      <div class="rd-right"><div id="rmap" class="map"></div></div>
+    </div>
+  </section>
+
+  <!-- ===== 宇宙 ===== -->
+  <section id="tab-space" class="tab scroll">
+    <div class="sp-grid">
+      <div class="panel card wide" id="sp-iss">
+        <div class="panel-h">🛰 国際宇宙ステーション（ISS）<small id="iss-light"></small></div>
+        <div id="issmap" class="map"></div>
+        <div class="stats4">
+          <div><small>緯度</small><b id="iss-lat" class="num">-</b></div>
+          <div><small>経度</small><b id="iss-lon" class="num">-</b></div>
+          <div><small>高度</small><b id="iss-alt" class="num">-</b></div>
+          <div><small>速度</small><b id="iss-spd" class="num">-</b></div>
+        </div>
+        <div id="iss-next" class="hero-line"></div>
+        <div id="iss-passes" class="list compact"></div>
+      </div>
+      <div class="panel card" id="sp-weather">
+        <div class="panel-h">🌌 宇宙天気・オーロラ</div>
+        <div class="kp-top"><div id="kp-now" class="kp-big">-</div><div id="kp-label"></div></div>
+        <div id="kp-chart" class="bars"></div>
+        <div class="bars-legend"><span>過去24時間</span><span>予報</span></div>
+        <div class="stats3">
+          <div><small>太陽風速度</small><b id="sw-speed" class="num">-</b></div>
+          <div><small>密度</small><b id="sw-dens" class="num">-</b></div>
+          <div><small>磁場 Bz</small><b id="sw-bz" class="num">-</b></div>
+        </div>
+        <div id="aurora" class="note"></div>
+      </div>
+      <div class="panel card" id="sp-sun">
+        <div class="panel-h">☀ 今の太陽 <small id="sun-label"></small></div>
+        <div class="sun-box"><img id="sun-a" alt=""><img id="sun-b" alt=""></div>
+        <div class="dots" id="sun-dots"></div>
+      </div>
+      <div class="panel card wide" id="sp-moon">
+        <div class="panel-h">🌙 月</div>
+        <div class="moon-box"><canvas id="moon" width="220" height="220"></canvas>
+          <div class="moon-info">
+            <div id="moon-name" class="moon-name"></div>
+            <div><small>月齢</small> <b id="moon-age" class="num"></b></div>
+            <div><small>輝面比</small> <b id="moon-ill" class="num"></b></div>
+            <div><small>次の満月</small> <b id="moon-full"></b></div>
+            <div><small>次の新月</small> <b id="moon-new"></b></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel card wide" id="sp-earth">
+        <div class="panel-h">🌍 今日の地球 <small id="earth-date"></small></div>
+        <div class="earth-box"><img id="earth-a" alt=""><img id="earth-b" alt=""></div>
+        <div id="earth-cap" class="muted small" style="text-align:center;margin-top:8px;line-height:1.6"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 星空 ===== -->
+  <section id="tab-sky" class="tab">
+    <div class="sk-wrap">
+      <div class="sk-main">
+        <canvas id="sky"></canvas>
+        <div class="sk-top">
+          <div id="sk-when" class="hud-card"></div>
+          <div class="chips small" id="sk-layers"></div>
+        </div>
+        <div class="sk-dirs" id="sk-dirs">
+          <button class="chip" data-f="0">北</button><button class="chip" data-f="90">東</button>
+          <button class="chip" data-f="180">南</button><button class="chip" data-f="270">西</button>
+        </div>
+        <div class="sk-time">
+          <button id="sk-now" class="chip">現在</button>
+          <button id="sk-ff" class="chip">▶ 早送り</button>
+          <input id="sk-slider" type="range" min="-720" max="720" step="10" value="0" aria-label="時刻">
+        </div>
+      </div>
+      <aside class="sk-side">
+        <div id="sk-sel" class="panel" hidden></div>
+        <div class="panel"><div class="panel-h">🌙 今夜の空</div><div id="sk-tonight"></div></div>
+        <div class="panel"><div class="panel-h">🪐 惑星</div><div id="sk-planets"></div></div>
+        <div class="muted small" style="padding:0 4px">ドラッグで向きを回転・天体をタップで詳細。下が向いている方角です（頭上を見上げた図）。</div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ===== 世界時計 ===== -->
+  <section id="tab-clock" class="tab scroll">
+    <div class="ck-head">
+      <div>
+        <div id="ck-time" class="ck-time num">--:--:--</div>
+        <div id="ck-date" class="muted"></div>
+      </div>
+      <div id="ck-sun" class="ck-sun"></div>
+    </div>
+    <div class="ck-mapbox"><canvas id="ck-map"></canvas></div>
+    <div id="ck-cities" class="ck-grid"></div>
+  </section>
+</main>
+
+<nav id="tabs">
+  <button data-tab="flight"><span>✈</span>フライト</button>
+  <button data-tab="radio"><span>📻</span>ラジオ</button>
+  <button data-tab="space"><span>🛰</span>宇宙</button>
+  <button data-tab="sky"><span>✨</span>星空</button>
+  <button data-tab="clock"><span>🌍</span>世界時計</button>
+</nav>
+<div id="toast"></div>
+<div id="amb-panel" class="panel" hidden></div>
+<div id="setup" class="modal" hidden>
+  <div class="panel modal-box">
+    <div class="panel-h" id="su-title">📍 場所の設定</div>
+    <p class="small muted" style="margin:0 0 10px;line-height:1.6">フライト・ISS・星空・日の出などの基準になる場所です。<br>設定はこの端末の中だけに保存されます。天気や飛行機などの取得のため、各データ提供元にはこの場所の緯度経度が送られます。</p>
+    <div id="su-cur" class="small" style="margin-bottom:10px"></div>
+    <button class="big-wide" id="su-geo">現在地を使う</button>
+    <input id="su-q" type="search" placeholder="または地名で検索（例：札幌、那覇、Paris）">
+    <div id="su-res" class="list" style="max-height:40vh;margin-top:6px"></div>
+    <div style="text-align:right;margin-top:10px"><button class="chip" id="su-close">閉じる</button></div>
+  </div>
+</div>
+<div id="dim"></div>
+<div id="amb-clock"></div>
+
+<script src="lib/leaflet.js"></script>
+<script src="lib/satellite.min.js"></script>
+<script src="lib/astronomy.browser.min.js"></script>
+<script src="app.js"></script>
+<script src="data.js"></script>
+<script src="setup.js"></script>
+<script src="flights.js"></script>
+<script src="radio.js"></script>
+<script src="space.js"></script>
+<script src="sky.js"></script>
+<script src="clock.js"></script>
+<script src="ambient.js"></script>
+<script>
+App.start(); Amb.init();
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
