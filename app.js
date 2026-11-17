@@ -142,7 +142,8 @@ const App = {
     { id: "space", name: "宇宙", icon: "i-orbit", desc: "ISS・オーロラ・太陽・月・地球" },
     { id: "clock", name: "世界時計", icon: "i-globe", desc: "昼と夜の境目が動く世界地図" },
     { id: "wind", name: "風の絵", icon: "i-wind", desc: "今の風と天気で動く光の流れ" },
-    { id: "lights", name: "灯台", icon: "i-lighthouse", desc: "世界の灯台の本当の光り方" }
+    { id: "lights", name: "灯台", icon: "i-lighthouse", desc: "世界の灯台の本当の光り方・灯台めぐり" },
+    { id: "obs", name: "天文台", icon: "i-telescope", desc: "今夜、星がよく見えている天文台" }
   ],
   get titles() { return Object.fromEntries(this.views.map(v => [v.id, v.name])); },
   pins: Store.get("pins", ["flight", "weather", "radio", "sky"]),

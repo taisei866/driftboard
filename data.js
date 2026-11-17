@@ -245,6 +245,13 @@ const Data = (() => {
       case "/api/tle": return tle();
       case "/api/weather": return weather(q);
       case "/api/forecast": return forecast();
+      case "/api/clouds": {
+        const u = "https://api.open-meteo.com/v1/forecast?" + new URLSearchParams({
+          latitude: qs.get("lat"), longitude: qs.get("lon"), timezone: "auto", forecast_days: "2",
+          current: "cloud_cover", hourly: "cloud_cover"
+        });
+        return cached(u, 900, async () => { const d = await j(u); return Array.isArray(d) ? d : [d]; });
+      }
       case "/api/say": return { ok: say(qs.get("text") || "") };
     }
     throw new Error("unknown " + p);

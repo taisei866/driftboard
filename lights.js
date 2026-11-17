@@ -21,6 +21,17 @@
     return null;
   }
   function pattern(L) {
+    const segs0 = pattern0(L), cols = L.col.length;
+    // 色が交互に変わる灯りで、1周期の点灯が色の数より少ない場合は、色の数だけ周期を繰り返して交互にする
+    const ons = segs0.filter(x => x.on).length;
+    if (cols > 1 && ons < cols) {
+      const out = []; let k = 0;
+      for (let r = 0; r < cols; r++) segs0.forEach(x => out.push(x.on ? { ...x, c: (k++) % cols } : { ...x }));
+      return out;
+    }
+    return segs0;
+  }
+  function pattern0(L) {
     const segs = [], push = (d, on, c = 0) => d > 0 && segs.push({ d, on, c });
     const cols = L.col.length;
     if (L.seq) {
@@ -32,7 +43,7 @@
       if (L.per > sum) push(L.per - sum, false);
       if (segs.length) { let k = 0; segs.forEach(s => { if (s.on) s.c = (k++) % cols; }); return segs; }
     }
-    const m = (L.ch || "Fl").match(/^(Al\.)?(F|Fl|LFl|Oc|Iso|Q|VQ|UQ|IQ|Mo)(?:\(([^)]+)\))?/) || [, "", "Fl", "1"];
+    const m = (L.ch || "Fl").match(/^(Al\.)?(LFl|Fl|Oc|Iso|VQ|UQ|IQ|Q|Mo|F)(?:\(([^)]+)\))?/) || [, "", "Fl", "1"];
     const kind = m[2], arg = m[3] || "1", n = parseInt(arg) || 1;
     const def = { F: 1, Fl: 5, LFl: 10, Oc: 5, Iso: 4, Q: 1, VQ: .5, UQ: .25, IQ: 15, Mo: 8 }[kind] || 5;
     let P = L.per > 0 ? L.per : def, k = 0;
@@ -60,7 +71,7 @@
     return segs;
   }
   function describe(L) {
-    const m = (L.ch || "").match(/^(Al\.)?(F|Fl|LFl|Oc|Iso|Q|VQ|UQ|IQ|Mo)(?:\(([^)]+)\))?/);
+    const m = (L.ch || "").match(/^(Al\.)?(LFl|Fl|Oc|Iso|VQ|UQ|IQ|Q|Mo|F)(?:\(([^)]+)\))?/);
     const cols = L.col.map(c => COL_JA[c] || c).join("と");
     if (!m) return `${cols}色の光（${L.ch}）`;
     const al = m[1] ? "交互に" : "", n = m[3] || "", per = L.per > 0 ? `${L.per}秒ごとに` : "";
@@ -223,6 +234,8 @@
     cv = $("#lcanvas"); g = cv.getContext("2d");
     map.on("resize", resize);
     map.on("moveend", () => { clearTimeout(moveT); moveT = setTimeout(load, 700); });
+    map.on("dragstart", () => { if (touring && !flying) tour(false); });   // 自分で地図を動かしたらツアーを止める
+    $("#lt-tour-btn").onclick = () => tour(!touring);
     map.on("click", e => {
       const p = e.containerPoint; let best = null, bd = 24;
       const zz = map.getZoom();
@@ -237,9 +250,79 @@
     load();
   }
 
+  /* ---------- 灯台めぐりツアー ----------
+     世界の有名な灯台を順に訪ね、その場所の灯台データ（data/lights/）から本当の光り方を表示する */
+  const TOUR = [
+    ["地球岬灯台", "日本・北海道室蘭市", 42.3017, 140.9927],
+    ["襟裳岬灯台", "日本・北海道えりも町", 41.9256, 143.2486],
+    ["宗谷岬灯台", "日本・北海道稚内市（日本最北端の岬）", 45.5228, 141.9361],
+    ["犬吠埼灯台", "日本・千葉県銚子市", 35.7076, 140.8686],
+    ["潮岬灯台", "日本・和歌山県串本町（本州最南端の岬）", 33.4361, 135.7539],
+    ["室戸岬灯台", "日本・高知県室戸市", 33.2456, 134.1764],
+    ["角島灯台", "日本・山口県下関市", 34.3522, 130.8475],
+    ["残波岬灯台", "日本・沖縄県読谷村", 26.4413, 127.7136],
+    ["ケープ・バイロン灯台", "オーストラリア（大陸の最東端）", -28.6386, 153.6365],
+    ["アガラス岬灯台", "南アフリカ（アフリカ大陸の最南端）", -34.8297, 20.0092],
+    ["ヘラクレスの塔", "スペイン・ア・コルーニャ（ローマ時代に建てられ、今も使われている灯台）", 43.3858, -8.4065],
+    ["クレアック灯台", "フランス・ウェサン島", 48.4592, -5.1272],
+    ["ファストネット灯台", "アイルランド南西沖の岩礁", 51.3892, -9.6031],
+    ["ベルロック灯台", "スコットランド東岸沖（1810年完成の海上灯台）", 56.4339, -2.3872],
+    ["リンデスネス灯台", "ノルウェー最南端", 57.9825, 7.0478],
+    ["ポートランド・ヘッド灯台", "アメリカ・メイン州", 43.6231, -70.2078],
+    ["ペギーズ・ポイント灯台", "カナダ・ノバスコシア州", 44.4917, -63.9183]
+  ];
+  const STAY = 28000;   // 1か所に滞在する時間
+  let touring = false, tourI = 0, tourT, flying = false;
+
+  function nearestMajor(lat, lon) {
+    let best = null, bd = 6;   // 6km以内で、いちばん光の届く灯りを「その灯台」とみなす
+    for (const Lt of lights.values()) {
+      if (!Lt.known) continue;
+      const d = Geo.dist(lat, lon, Lt.ll[0], Lt.ll[1]);
+      if (d < bd && (!best || (Lt.rng || 0) > (best.rng || 0) || d < 1)) { bd = Math.max(d, 1); best = Lt; }
+    }
+    return best;
+  }
+  function tourCard(stop, Lt) {
+    const c = $("#lt-tour");
+    c.innerHTML = `
+      <div class="tour-h"><span class="mono muted small">${tourI + 1} / ${TOUR.length}</span>
+        <div class="tour-btns"><button class="btn sm icon" id="tr-prev" aria-label="前の灯台">${ic("i-chev", "sm rot90")}</button>
+        <button class="btn sm icon" id="tr-next" aria-label="次の灯台">${ic("i-chev", "sm rotm90")}</button>
+        <button class="btn sm" id="tr-stop">${ic("i-x", "sm")}終了</button></div></div>
+      <div class="tour-name">${esc(stop[0])}</div>
+      <div class="muted small">${esc(stop[1])}</div>
+      <p class="lt-desc">${Lt ? esc(describe(Lt)) + (Lt.rng ? `。光は約${Math.round(Lt.rng * 1.852)}km先まで届きます` : "") : "この灯台の光り方は、データにまだ登録されていません"}</p>`;
+    c.hidden = false;
+    $("#tr-prev").onclick = () => goStop(tourI - 1);
+    $("#tr-next").onclick = () => goStop(tourI + 1);
+    $("#tr-stop").onclick = () => tour(false);
+  }
+  function goStop(i) {
+    clearTimeout(tourT);
+    tourI = ((i % TOUR.length) + TOUR.length) % TOUR.length;
+    const st = TOUR[tourI];
+    flying = true; sel = null; info(null);
+    tourCard(st, null);
+    map.flyTo([st[2], st[3]], 12, { duration: 4 });
+    map.once("moveend", async () => {
+      flying = false;
+      await load();
+      for (let k = 0; busy && k < 60; k++) await new Promise(r => setTimeout(r, 250));   // 読み込み中なら終わるまで待つ
+      const Lt = nearestMajor(st[2], st[3]);
+      if (touring) { sel = Lt; tourCard(st, Lt); tourT = setTimeout(() => goStop(tourI + 1), STAY); }
+    });
+  }
+  function tour(on) {
+    touring = on; clearTimeout(tourT);
+    $("#lt-tour-btn").classList.toggle("on", on);
+    if (on) goStop(tourI); else { $("#lt-tour").hidden = true; sel = null; }
+  }
+
   App.reg("lights", {
     init,
     show() { visible = true; setTimeout(() => { map.invalidateSize(); resize(); }, 60); cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); },
-    hide() { visible = false; cancelAnimationFrame(raf); }
+    hide() { visible = false; cancelAnimationFrame(raf); if (touring) tour(false); },
+    amb(v) { if (v && !touring) tour(true); else if (!v && touring) tour(false); }
   });
 })();
