@@ -200,6 +200,17 @@ const Data = (() => {
     return cached(u, 900, async () => { const d = await j(u); return Array.isArray(d) ? d : [d]; });
   }
 
+  function forecast() {
+    const { lat, lon } = H();
+    const u = "https://api.open-meteo.com/v1/forecast?" + new URLSearchParams({
+      latitude: lat, longitude: lon, timezone: "auto", forecast_days: "7",
+      current: "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,is_day,wind_speed_10m,wind_direction_10m,precipitation,pressure_msl",
+      hourly: "temperature_2m,precipitation_probability,weather_code,is_day",
+      daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max"
+    });
+    return cached(u, 600, () => j(u));
+  }
+
   /* ---------- 読み上げ（ブラウザ標準） ---------- */
   function say(text) {
     try {
@@ -223,6 +234,7 @@ const Data = (() => {
       case "/api/space": return space();
       case "/api/tle": return tle();
       case "/api/weather": return weather(q);
+      case "/api/forecast": return forecast();
       case "/api/say": return { ok: say(qs.get("text") || "") };
     }
     throw new Error("unknown " + p);

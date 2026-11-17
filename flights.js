@@ -57,6 +57,9 @@
     map.on("click", () => select(null));
     map.on("dragstart", () => { follow = false; if (sel) renderDetail(); });
     map.on("zoomend", () => planes.forEach(style));
+    $("#fl-filter-btn").onclick = e => { e.stopPropagation(); const b = $("#fl-filter"); b.hidden = !b.hidden; if (!b.hidden) filterUI(); };
+    document.addEventListener("click", e => { const b = $("#fl-filter"); if (!b.hidden && !b.contains(e.target)) b.hidden = true; });
+    countUI();
     map.on("moveend", () => { clearTimeout(moveT); moveT = setTimeout(area, 700); });
     QC = { lat: H.lat, lon: H.lon, nm: 160 };
     $("#fl-home").onclick = () => { follow = false; map.flyTo([H.lat, H.lon], 8); };
@@ -118,12 +121,75 @@
       if (sel === k) select(null);
     }
     fetchRoutes();
-    renderStats(); renderList(); checkAlerts();
+    renderStats(); renderList(); checkAlerts(); countUI();
     if (sel) renderDetail();
+  }
+
+  /* ---------- 絞り込み ---------- */
+  const F = Object.assign({ kind: "all", alt: "all", vs: "all", flightOnly: false, q: "" }, Store.get("flFilter", {}));
+  const FILTERS = {
+    kind: [["all", "すべて"], ["large", "旅客機・貨物機"], ["small", "小型機"], ["heli", "ヘリコプター"]],
+    alt: [["all", "すべて"], ["low", "〜3,000m"], ["mid", "3,000〜9,000m"], ["high", "9,000m〜"], ["ground", "地上"]],
+    vs: [["all", "すべて"], ["up", "上昇中"], ["down", "降下中"], ["level", "巡航中"]]
+  };
+  function passes(p) {
+    const d = p.d, cat = d.category || "", m = (altFt(d) || 0) * 0.3048, vr = d.baro_rate ?? d.geom_rate ?? 0;
+    if (F.kind === "large" && !/^A[345]$/.test(cat)) return false;
+    if (F.kind === "small" && !/^A[12]$/.test(cat)) return false;
+    if (F.kind === "heli" && cat !== "A7") return false;
+    if (F.alt === "ground" && !ground(d)) return false;
+    if (F.alt !== "all" && F.alt !== "ground" && ground(d)) return false;
+    if (F.alt === "low" && m > 3000) return false;
+    if (F.alt === "mid" && (m < 3000 || m > 9000)) return false;
+    if (F.alt === "high" && m < 9000) return false;
+    if (F.vs === "up" && !(vr > 300)) return false;
+    if (F.vs === "down" && !(vr < -300)) return false;
+    if (F.vs === "level" && (ground(d) || Math.abs(vr) > 300)) return false;
+    if (F.flightOnly && !isFlightNo((d.flight || "").trim().toUpperCase())) return false;
+    if (F.q) { const q = F.q.toUpperCase(); if (![csOf(d), d.r || "", d.hex, d.t || ""].some(x => x.toUpperCase().includes(q))) return false; }
+    return true;
+  }
+  const nFilters = () => ["kind", "alt", "vs"].filter(k => F[k] !== "all").length + (F.flightOnly ? 1 : 0) + (F.q ? 1 : 0);
+  function filterUI() {
+    const box = $("#fl-filter");
+    box.innerHTML = `
+      <div class="modal-h" style="font-size:15px"><span>絞り込み</span><button class="btn icon sm" id="ff-x" aria-label="閉じる">${ic("i-x", "sm")}</button></div>
+      <div class="search-box"><svg class="ic"><use href="#i-search"/></svg><input id="ff-q" type="search" placeholder="便名・機体記号・機種（例：JAL、B738）" value="${esc(F.q)}"></div>
+      ${Object.entries({ kind: "種類", alt: "高度", vs: "動き" }).map(([k, l]) => `
+        <div class="ff-h">${l}</div><div class="chips">${FILTERS[k].map(([v, t]) => `<button class="chip ${F[k] === v ? "on" : ""}" data-k="${k}" data-v="${v}">${t}</button>`).join("")}</div>`).join("")}
+      <div class="ff-h">その他</div><div class="chips"><button class="chip ${F.flightOnly ? "on" : ""}" data-k="flightOnly">便名のある機体だけ</button></div>
+      <div class="ff-foot"><button class="btn sm" id="ff-reset">条件をクリア</button><span class="muted small" id="ff-count"></span></div>`;
+    box.onclick = e => {
+      e.stopPropagation();
+      const b = e.target.closest("[data-k]");
+      if (b) { if (b.dataset.k === "flightOnly") F.flightOnly = !F.flightOnly; else F[b.dataset.k] = b.dataset.v; applyFilter(); filterUI(); }
+    };
+    $("#ff-x").onclick = () => box.hidden = true;
+    $("#ff-reset").onclick = () => { Object.assign(F, { kind: "all", alt: "all", vs: "all", flightOnly: false, q: "" }); applyFilter(); filterUI(); };
+    let qt; $("#ff-q").oninput = e => { clearTimeout(qt); qt = setTimeout(() => { F.q = e.target.value.trim(); applyFilter(); }, 250); };
+    countUI();
+  }
+  function countUI() {
+    const n = nFilters(), shown = [...planes.values()].filter(passes).length;
+    $("#fl-filter-btn span").textContent = n ? `絞り込み（${n}）` : "絞り込み";
+    $("#fl-filter-btn").classList.toggle("on", !!n);
+    const c = $("#ff-count"); if (c) c.textContent = `${shown} / ${planes.size} 機を表示中`;
+  }
+  function applyFilter() {
+    Store.set("flFilter", F);
+    planes.forEach(style); renderList(); renderStats(); countUI();
+    if (F.q) {   // 検索で1機に絞れたら、その機体へ移動
+      const hit = [...planes.values()].filter(passes);
+      if (hit.length === 1 && sel !== hit[0].hex) { select(hit[0].hex); map.panTo(pos(hit[0])); }
+    }
   }
 
   function style(p) {
     const el = p.marker.getElement(); if (!el) return;
+    const ok = passes(p) || sel === p.hex;
+    el.style.display = ok ? "" : "none";
+    p.line.setStyle({ opacity: ok ? .3 : 0 });
+    if (!ok) return;
     const d = p.d, ac = el.firstChild, c = color(d), on = sel === p.hex;
     ac.style.setProperty("--c", c);
     ac.querySelector(".ac-i").style.transform = `rotate(${d.track ?? 0}deg)`;
@@ -162,7 +228,7 @@
   }
 
   function renderStats() {
-    const air = [...planes.values()].filter(p => !ground(p.d));
+    const air = [...planes.values()].filter(p => !ground(p.d) && passes(p));
     let near = null, hi = null;
     for (const p of air) {
       const dd = distOf(p);
@@ -176,14 +242,14 @@
   }
 
   function renderList() {
-    const arr = [...planes.values()].map(p => ({ p, dd: distOf(p) })).sort((a, b) => a.dd - b.dd).slice(0, 30);
+    const arr = [...planes.values()].filter(passes).map(p => ({ p, dd: distOf(p) })).sort((a, b) => a.dd - b.dd).slice(0, 30);
     $("#fl-list").innerHTML = arr.map(({ p, dd }) => {
       const r = route(p);
       return `<div class="fl-row ${sel === p.hex ? "sel" : ""}" data-k="${p.hex}">
         <div><span class="sw" style="background:${color(p.d)}"></span><b>${esc(csOf(p.d))}</b>
           <div class="rt">${esc(routeTxt(r) || airline(p.d) || p.d.t || "")}</div></div>
         <div class="mono">${altTxt(p.d)}</div><div class="mono muted">${Fmt.n(dd, 0)}km</div></div>`;
-    }).join("") || `<div class="empty">この範囲には、位置を送信している機体がありません。地図を動かすと、その周辺の飛行機を表示します。</div>`;
+    }).join("") || (planes.size ? `<div class="empty">絞り込みの条件に合う機体がありません。</div>` : "") || `<div class="empty">この範囲には、位置を送信している機体がありません。地図を動かすと、その周辺の飛行機を表示します。</div>`;
   }
 
   function select(k) {

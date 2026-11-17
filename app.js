@@ -133,7 +133,7 @@ function darkMap(el, opt = {}) {
 const App = {
   mods: {}, cur: null,
   home: Store.get("home", null) || { name: "東京", lat: 35.681, lon: 139.767, tz: "Asia/Tokyo", unset: true },
-  titles: { flight: "フライトレーダー", radio: "ワールドラジオ", space: "宇宙ダッシュボード", sky: "今夜の星空", clock: "昼夜ワールドクロック" },
+  titles: { flight: "フライトレーダー", weather: "天気", radio: "ワールドラジオ", space: "宇宙ダッシュボード", sky: "今夜の星空", clock: "昼夜ワールドクロック" },
   reg(name, mod) { this.mods[name] = mod; },
   async start() {
     if (!this.home.tz) this.home.tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Tokyo";

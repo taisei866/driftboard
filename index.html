@@ -42,6 +42,7 @@
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
     <symbol id="i-ff" viewBox="0 0 24 24"><path d="M4 6v12l8-6zM12 6v12l8-6z"/></symbol>
     <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8.5 6v12M15.5 6v12"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 5h16l-6.2 7.6V19l-3.6 1.6v-8z"/></symbol>
     <symbol id="i-chev" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></symbol>
     <symbol id="w-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></symbol>
     <symbol id="w-moon" viewBox="0 0 24 24"><path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5z"/></symbol>
@@ -78,8 +79,10 @@
           <div id="fl-stats" class="hud-card">読み込み中…</div>
           <div class="hud-btns">
             <button id="fl-home" class="btn"><svg class="ic"><use href="#i-locate"/></svg><span>現在地へ戻る</span></button>
+            <button id="fl-filter-btn" class="btn"><svg class="ic"><use href="#i-filter"/></svg><span>絞り込み</span></button>
           </div>
         </div>
+        <div id="fl-filter" class="panel ff" hidden></div>
         <div id="fl-alert" class="alert" hidden></div>
         <div class="legend"><span>高度 低</span><i></i><span>高</span></div>
         <div class="map-hint">地図を動かすと、その周辺の飛行機を表示します</div>
@@ -92,6 +95,21 @@
         </div>
       </aside>
     </div>
+  </section>
+
+  <!-- 天気 -->
+  <section id="tab-weather" class="tab scroll">
+    <div class="wx-grid">
+      <div class="panel card"><div class="panel-h"><span>現在の天気</span><small id="wx-place"></small></div><div id="wx-now"><div class="empty">読み込み中…</div></div></div>
+      <div class="panel card wx-chartbox">
+        <div class="panel-h"><span>気温と降水確率</span><div class="seg mini" id="wx-span"><button data-h="24">24時間</button><button data-h="48">48時間</button></div></div>
+        <div id="wx-icons" class="wx-icons"></div>
+        <canvas id="wx-chart"></canvas>
+        <div class="wx-legend muted small"><span><i class="lg-line"></i>気温</span><span><i class="lg-bar"></i>降水確率</span><span><i class="lg-night"></i>夜</span></div>
+      </div>
+      <div class="panel card"><div class="panel-h"><span>7日間の予報</span><small>降水確率 ・ 最低〜最高気温</small></div><div id="wx-days"></div></div>
+    </div>
+    <p class="muted small credit">気象データ：Open-Meteo</p>
   </section>
 
   <!-- ラジオ -->
@@ -245,6 +263,7 @@
 
 <nav id="tabs">
   <button data-tab="flight"><svg class="ic"><use href="#i-plane"/></svg>フライト</button>
+  <button data-tab="weather"><svg class="ic"><use href="#w-partly"/></svg>天気</button>
   <button data-tab="radio"><svg class="ic"><use href="#i-radio"/></svg>ラジオ</button>
   <button data-tab="space"><svg class="ic"><use href="#i-orbit"/></svg>宇宙</button>
   <button data-tab="sky"><svg class="ic"><use href="#i-sky"/></svg>星空</button>
@@ -274,6 +293,7 @@
 <script src="data.js"></script>
 <script src="setup.js"></script>
 <script src="flights.js"></script>
+<script src="weather.js"></script>
 <script src="radio.js"></script>
 <script src="space.js"></script>
 <script src="sky.js"></script>

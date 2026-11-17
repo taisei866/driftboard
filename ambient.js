@@ -1,6 +1,6 @@
 /* アンビエントモード：無操作で各タブをゆっくり巡回 */
 const Amb = (() => {
-  const TABS = [["flight", "フライト"], ["radio", "ラジオ"], ["space", "宇宙"], ["sky", "星空"], ["clock", "世界時計"]];
+  const TABS = [["flight", "フライト"], ["weather", "天気"], ["radio", "ラジオ"], ["space", "宇宙"], ["sky", "星空"], ["clock", "世界時計"]];
   let cfg = Object.assign({ auto: true, idle: 3, every: 60, tabs: ["flight", "sky", "clock", "space"], dim: true }, Store.get("amb", {}));
   let on = false, swallow = 0, last = Date.now(), idx = 0, swT, scrollRaf, clockT;
   const save = () => Store.set("amb", cfg);
