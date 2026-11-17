@@ -133,7 +133,19 @@ function darkMap(el, opt = {}) {
 const App = {
   mods: {}, cur: null,
   home: Store.get("home", null) || { name: "東京", lat: 35.681, lon: 139.767, tz: "Asia/Tokyo", unset: true },
-  titles: { flight: "フライトレーダー", weather: "天気", radio: "ワールドラジオ", space: "宇宙ダッシュボード", sky: "今夜の星空", clock: "昼夜ワールドクロック" },
+  /* すべての画面。下のバーにはピン留めした4つ＋「すべて」を並べる */
+  views: [
+    { id: "flight", name: "フライト", icon: "i-plane", desc: "上空の飛行機をリアルタイムで" },
+    { id: "weather", name: "天気", icon: "w-partly", desc: "今の天気と48時間・7日間の予報" },
+    { id: "radio", name: "ラジオ", icon: "i-radio", desc: "世界中のネットラジオ" },
+    { id: "sky", name: "星空", icon: "i-sky", desc: "今の自分の空をプラネタリウムで" },
+    { id: "space", name: "宇宙", icon: "i-orbit", desc: "ISS・オーロラ・太陽・月・地球" },
+    { id: "clock", name: "世界時計", icon: "i-globe", desc: "昼と夜の境目が動く世界地図" },
+    { id: "wind", name: "風の絵", icon: "i-wind", desc: "今の風と天気で動く光の流れ" },
+    { id: "lights", name: "灯台", icon: "i-lighthouse", desc: "世界の灯台の本当の光り方" }
+  ],
+  get titles() { return Object.fromEntries(this.views.map(v => [v.id, v.name])); },
+  pins: Store.get("pins", ["flight", "weather", "radio", "sky"]),
   reg(name, mod) { this.mods[name] = mod; },
   async start() {
     if (!this.home.tz) this.home.tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Tokyo";
@@ -141,7 +153,14 @@ const App = {
     $("#loc-name").textContent = this.home.unset ? "場所を設定" : this.home.name;
     $("#loc-btn").onclick = () => Setup.open(false);
     if (this.home.unset) Setup.open(true);
-    $$("#tabs button").forEach(b => b.onclick = () => this.show(b.dataset.tab));
+    this.nav();
+    $("#launcher").addEventListener("click", e => {
+      if (e.target === $("#launcher")) return this.launcher(false);
+      const pin = e.target.closest("[data-pin]"), card = e.target.closest("[data-open]");
+      if (pin) { this.togglePin(pin.dataset.pin); return; }
+      if (card) { this.launcher(false); this.show(card.dataset.open); }
+    });
+    $("#ln-x").onclick = () => this.launcher(false);
     this.show(Store.get("tab", "flight"));
     const tick = () => { $("#hdr-clock").textContent = Fmt.hm(new Date()); };
     tick(); setInterval(tick, 1000);
@@ -155,11 +174,44 @@ const App = {
     const prev = this.mods[this.cur];
     if (prev && prev.hide) prev.hide();
     $$(".tab").forEach(t => t.classList.toggle("on", t.id === "tab-" + name));
-    $$("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === name));
     this.cur = name; Store.set("tab", name);
+    this.navState();
     const m = this.mods[name];
     if (!m._init) { m._init = true; m.init(); }
     if (m.show) m.show();
+  },
+  nav() {
+    const v = id => this.views.find(x => x.id === id);
+    $("#tabs").innerHTML = this.pins.map(id => v(id)).filter(Boolean).map(x =>
+      `<button data-tab="${x.id}">${ic(x.icon)}<span>${x.name}</span></button>`).join("") +
+      `<button data-tab="__all" id="tab-all">${ic("i-grid")}<span>すべて</span></button>`;
+    $$("#tabs button").forEach(b => b.onclick = () => b.dataset.tab === "__all" ? this.launcher(true) : this.show(b.dataset.tab));
+    if (this.cur) this.navState();
+  },
+  navState() {
+    const pinned = this.pins.includes(this.cur), cv = this.views.find(x => x.id === this.cur);
+    $$("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === this.cur || (!pinned && b.dataset.tab === "__all")));
+    const all = $("#tab-all");   // ピン留めしていない画面を見ているときは、「すべて」に画面名を出す
+    if (all) all.innerHTML = !pinned && cv ? `${ic(cv.icon)}<span>${cv.name}</span>` : `${ic("i-grid")}<span>すべて</span>`;
+  },
+  launcher(open) {
+    const L = $("#launcher");
+    if (!open) { L.hidden = true; return; }
+    $("#ln-grid").innerHTML = this.views.map(x => `
+      <div class="ln-card ${x.id === this.cur ? "on" : ""}" data-open="${x.id}" role="button" tabindex="0">
+        <div class="ln-ic">${ic(x.icon)}</div>
+        <div class="ln-tx"><b>${x.name}</b><small>${x.desc}</small></div>
+        <button class="ln-pin ${this.pins.includes(x.id) ? "on" : ""}" data-pin="${x.id}" aria-label="${x.name}を下のバーに固定">${ic("i-pinned", "sm")}</button>
+      </div>`).join("");
+    L.hidden = false;
+  },
+  togglePin(id) {
+    if (this.pins.includes(id)) { if (this.pins.length <= 1) return; this.pins = this.pins.filter(x => x !== id); }
+    else {
+      if (this.pins.length >= 4) { toast("下のバーに置けるのは4つまでです。先にどれかを外してください"); return; }
+      this.pins = this.views.map(v => v.id).filter(x => x === id || this.pins.includes(x));
+    }
+    Store.set("pins", this.pins); this.nav(); this.launcher(true);
   },
   fullscreen(toggle) {
     const d = document;

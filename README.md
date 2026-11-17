@@ -17,6 +17,10 @@
 | 宇宙 | ISS の現在位置と「肉眼で見える次の通過」、オーロラ指標、最新の太陽画像、月齢、今日の地球（DSCOVR/EPIC の実写） |
 | 星空 | 今の自分の空をプラネタリウム表示。星座・惑星・月・ISS、時間の早送り、今夜の惑星の見頃 |
 | 世界時計 | 昼と夜の境目をリアルタイムで描く世界地図と、各都市の時刻・天気 |
+| 風の絵 | 今の風向き・風速・気温・天気で動く、光の粒子のアート |
+| 灯台 | 世界中の灯台・航路標識の、本当の光り方（色・周期・点滅回数）を地図上で再現 |
+
+下のバーには好きな画面を4つまで固定でき、「すべて」からほかの画面を開けます。
 
 **アンビエントモード**：しばらく触らないと、各タブをフェードしながら自動で巡回します（夜は自動で減光）。
 
@@ -39,6 +43,7 @@
 - 宇宙天気・オーロラ：[NOAA SWPC](https://www.swpc.noaa.gov)、ISS 軌道：[CelesTrak](https://celestrak.org)
 - 太陽画像：NASA SDO / ESA・NASA SOHO、地球の実写：NASA DSCOVR EPIC
 - 天気・地名検索：[Open-Meteo](https://open-meteo.com)、逆ジオコーディング：[BigDataCloud](https://www.bigdatacloud.com)
+- 灯台：OpenStreetMap の航路標識データ（[Overpass API](https://overpass-api.de)）
 - 地図：© [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors
 
 ## 同梱ライブラリ・データ

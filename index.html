@@ -43,6 +43,10 @@
     <symbol id="i-ff" viewBox="0 0 24 24"><path d="M4 6v12l8-6zM12 6v12l8-6z"/></symbol>
     <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8.5 6v12M15.5 6v12"/></symbol>
     <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 5h16l-6.2 7.6V19l-3.6 1.6v-8z"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></symbol>
+    <symbol id="i-pinned" viewBox="0 0 24 24"><path d="M9 3.5h6l-1 5.5 3.5 3.5h-11L10 9zM12 12.5V21"/></symbol>
+    <symbol id="i-wind" viewBox="0 0 24 24"><path d="M3 8.5h11a2.8 2.8 0 1 0-2.8-2.8M3 12.5h16a2.8 2.8 0 1 1-2.8 2.8M3 16.5h8"/></symbol>
+    <symbol id="i-lighthouse" viewBox="0 0 24 24"><path d="M9.5 9h5l1.5 12H8zM9 9l1-3.5h4L15 9M12 3v2.5M4.5 4.5l3 2M19.5 4.5l-3 2M8.6 14h6.8"/></symbol>
     <symbol id="i-chev" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></symbol>
     <symbol id="w-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></symbol>
     <symbol id="w-moon" viewBox="0 0 24 24"><path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5z"/></symbol>
@@ -247,6 +251,23 @@
     </div>
   </section>
 
+  <!-- 風の絵 -->
+  <section id="tab-wind" class="tab art">
+    <canvas id="wind"></canvas>
+    <div id="wind-info" class="art-info"></div>
+  </section>
+
+  <!-- 灯台 -->
+  <section id="tab-lights" class="tab">
+    <div id="lmap" class="map lmap"></div>
+    <canvas id="lcanvas"></canvas>
+    <div class="lt-top">
+      <label class="lt-spot"><svg class="ic sm"><use href="#i-pin"/></svg><select id="lt-spots" aria-label="海域へ移動"></select></label>
+      <div id="lt-status" class="hud-card small"></div>
+    </div>
+    <div id="lt-info" class="panel lt-info" hidden></div>
+  </section>
+
   <!-- 世界時計 -->
   <section id="tab-clock" class="tab scroll">
     <div class="ck-head">
@@ -261,14 +282,14 @@
   </section>
 </main>
 
-<nav id="tabs">
-  <button data-tab="flight"><svg class="ic"><use href="#i-plane"/></svg>フライト</button>
-  <button data-tab="weather"><svg class="ic"><use href="#w-partly"/></svg>天気</button>
-  <button data-tab="radio"><svg class="ic"><use href="#i-radio"/></svg>ラジオ</button>
-  <button data-tab="space"><svg class="ic"><use href="#i-orbit"/></svg>宇宙</button>
-  <button data-tab="sky"><svg class="ic"><use href="#i-sky"/></svg>星空</button>
-  <button data-tab="clock"><svg class="ic"><use href="#i-globe"/></svg>世界時計</button>
-</nav>
+<nav id="tabs"></nav>
+<div id="launcher" class="modal sheet" hidden>
+  <div class="panel modal-box ln-box">
+    <div class="modal-h"><span>すべての画面</span><button class="btn icon" id="ln-x" aria-label="閉じる"><svg class="ic"><use href="#i-x"/></svg></button></div>
+    <p class="muted small lead">ピンのボタンを押した画面（4つまで）が、下のバーに並びます。</p>
+    <div id="ln-grid" class="ln-grid"></div>
+  </div>
+</div>
 <div id="toast" role="status"></div>
 <div id="amb-panel" class="panel" hidden></div>
 <div id="setup" class="modal" hidden>
@@ -298,6 +319,8 @@
 <script src="space.js"></script>
 <script src="sky.js"></script>
 <script src="clock.js"></script>
+<script src="wind.js"></script>
+<script src="lights.js"></script>
 <script src="ambient.js"></script>
 <script>
 App.start(); Amb.init();

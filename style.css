@@ -70,7 +70,7 @@ main.fade{opacity:0}
 .tab{position:absolute;inset:0;display:none;overflow-x:hidden}
 .tab.on{display:block}
 .tab.scroll{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px}
-#tabs{display:grid;grid-template-columns:repeat(6,1fr);border-top:1px solid var(--line);background:var(--bg)}
+#tabs{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--line);background:var(--bg)}
 #tabs button{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:0;background:none;color:var(--dim);font-size:11.5px;letter-spacing:.02em}
 #tabs button .ic{width:22px;height:22px}
 #tabs button.on{color:var(--tx)}
@@ -442,3 +442,39 @@ body.amb #amb-clock{display:block}
   .wx-day{grid-template-columns:64px 22px 40px 30px minmax(0,1fr) 30px;gap:6px;font-size:13px}
   #wx-chart{height:190px}
 }
+
+/* ===== 下部バーと「すべての画面」 ===== */
+#tabs button span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;padding:0 2px}
+.sheet{align-items:end}
+.ln-box{width:min(640px,100%)}
+.ln-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.ln-card{position:relative;display:flex;gap:12px;align-items:center;padding:14px 44px 14px 14px;border-radius:10px;background:var(--s2);border:1px solid var(--line);cursor:pointer;text-align:left}
+.ln-card:hover{border-color:var(--line2)}
+.ln-card.on{border-color:var(--acc)}
+.ln-ic{width:42px;height:42px;border-radius:10px;background:var(--s3);display:grid;place-items:center;color:var(--acc);flex:none}
+.ln-ic .ic{width:24px;height:24px}
+.ln-tx{min-width:0}
+.ln-tx b{display:block;font-size:15px}
+.ln-tx small{display:block;color:var(--mut);font-size:12px;margin-top:2px;line-height:1.5}
+.ln-pin{position:absolute;top:6px;right:6px;width:34px;height:34px;border-radius:8px;border:0;background:none;color:var(--dim);display:grid;place-items:center}
+.ln-pin.on{color:var(--acc);background:var(--acc-soft)}
+.ln-pin.on .ic{fill:currentColor}
+@media (max-width:600px){ .ln-grid{grid-template-columns:minmax(0,1fr)} .modal.sheet{padding:0} .sheet .modal-box{border-radius:16px 16px 0 0;max-height:85vh} }
+@media (min-width:601px){ .sheet{align-items:center} }
+
+/* ===== 風の絵 ===== */
+.tab.art{background:#04060a}
+#wind{position:absolute;inset:0;width:100%;height:100%;display:block}
+.art-info{position:absolute;left:14px;bottom:14px;font-size:12.5px;line-height:1.6;color:rgba(232,234,237,.75);background:rgba(4,6,10,.55);padding:8px 12px;border-radius:8px;pointer-events:none}
+.art-info b{color:var(--tx);font-weight:500}
+/* ===== 灯台 ===== */
+.lmap{position:absolute;inset:0;border-radius:0}
+.night-map .dark-tiles{filter:invert(1) hue-rotate(180deg) brightness(.42) contrast(1.05) saturate(.25)}
+#lcanvas{position:absolute;left:0;top:0;pointer-events:none;z-index:450}
+.lt-top{position:absolute;top:10px;left:10px;right:10px;z-index:500;display:flex;flex-direction:column;gap:8px;align-items:flex-start;pointer-events:none}
+.lt-top>*{pointer-events:auto}
+.lt-spot{display:flex;align-items:center;gap:6px;height:38px;padding:0 4px 0 10px;border-radius:10px;border:1px solid var(--line2);background:rgba(16,18,22,.92);color:var(--acc)}
+.lt-spot select{border:0;background:none;height:36px;padding:0 6px;color:var(--tx);width:auto;max-width:70vw}
+.lt-info{position:absolute;left:10px;bottom:10px;z-index:600;width:min(380px,calc(100% - 20px));box-shadow:0 18px 40px rgba(0,0,0,.55)}
+.lt-desc{font-size:15px;line-height:1.7;margin:8px 0 4px}
+body.amb .lt-top,body.amb .art-info{opacity:0}
