@@ -30,7 +30,7 @@ def log(*a):
 def extract(url):
     """planet を流し読みして osmium に渡し、灯りの点だけを FILTERED に書き出す"""
     log(f"ダウンロード開始：{url}")
-    p = subprocess.Popen(["osmium", "tags-filter", "-F", "pbf", "-", *FILTER, "-o", FILTERED, "--overwrite"],
+    p = subprocess.Popen(["osmium", "tags-filter", "-R", "-F", "pbf", "-", *FILTER, "-o", FILTERED, "--overwrite"],
                          stdin=subprocess.PIPE)
     got, t0, last = 0, time.time(), 0
     try:
