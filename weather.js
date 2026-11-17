@@ -15,7 +15,11 @@
 
   async function load() {
     try { data = await api("/api/forecast"); last = Date.now(); render(); }
-    catch { $("#wx-now").innerHTML = `<div class="empty">天気を取得できませんでした。しばらくしてから再度お試しください。</div>`; }
+    catch (e) {
+      console.error(e);
+      $("#wx-now").innerHTML = `<div class="empty">天気を取得できませんでした。<br><small class="mono">${esc(e.message || e)}</small><br><button class="btn sm" id="wx-retry" style="margin-top:8px">もう一度</button></div>`;
+      $("#wx-retry").onclick = load;
+    }
   }
 
   const hh = s => s.slice(11, 16);
@@ -33,12 +37,12 @@
           <div class="muted small">最高 <b class="mono">${Math.round(d.temperature_2m_max[0])}°</b> ・ 最低 <b class="mono">${Math.round(d.temperature_2m_min[0])}°</b></div></div>
       </div>
       <div class="wx-stats">
-        <div><small>体感</small><b class="mono">${Math.round(c.apparent_temperature)}°</b></div>
+        <div><small>体感</small><b class="mono">${c.apparent_temperature != null ? Math.round(c.apparent_temperature) + "°" : "-"}</b></div>
         <div><small>湿度</small><b class="mono">${c.relative_humidity_2m}%</b></div>
         <div><small>風</small><b class="mono">${(c.wind_speed_10m / 3.6).toFixed(1)}m/s</b><span class="muted small"> ${dirTxt(c.wind_direction_10m)}</span></div>
-        <div><small>降水量（1時間）</small><b class="mono">${c.precipitation}mm</b></div>
-        <div><small>気圧</small><b class="mono">${Math.round(c.pressure_msl)}hPa</b></div>
-        <div><small>UV指数（最大）</small><b class="mono">${d.uv_index_max[0] != null ? d.uv_index_max[0].toFixed(0) : "-"}</b></div>
+        <div><small>降水量（1時間）</small><b class="mono">${c.precipitation != null ? c.precipitation + "mm" : "-"}</b></div>
+        <div><small>気圧</small><b class="mono">${c.pressure_msl != null ? Math.round(c.pressure_msl) + "hPa" : "-"}</b></div>
+        <div><small>UV指数（最大）</small><b class="mono">${d.uv_index_max && d.uv_index_max[0] != null ? d.uv_index_max[0].toFixed(0) : "-"}</b></div>
         <div><small>日の出</small><b class="mono">${hh(d.sunrise[0])}</b></div>
         <div><small>日の入り</small><b class="mono">${hh(d.sunset[0])}</b></div>
       </div>`;

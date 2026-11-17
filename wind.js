@@ -103,7 +103,7 @@
       if (changed) seed();
       const [, lb] = wxInfo(wx.weather_code, wx.is_day);
       $("#wind-info").innerHTML = `<b>${esc(App.home.name)}の今</b><br>風 ${Geo.dir16(wx.wind_direction_10m)} <span class="mono">${(wx.wind_speed_10m / 3.6).toFixed(1)}m/s</span> ・ <span class="mono">${Math.round(wx.temperature_2m)}°C</span> ・ ${lb} ・ 雲 <span class="mono">${wx.cloud_cover ?? "-"}%</span>`;
-    } catch { $("#wind-info").textContent = "天気を取得できないため、仮の風で描いています"; }
+    } catch (e) { $("#wind-info").textContent = `天気を取得できないため、仮の風で描いています（${e.message || e}）`; }
   }
 
   let loopT;

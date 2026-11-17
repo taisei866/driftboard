@@ -13,7 +13,10 @@ const Data = (() => {
       const ac = new AbortController(), t = setTimeout(() => ac.abort(), ms);
       try {
         const r = await fetch(u, Object.assign({ signal: ac.signal }, opt));
-        if (!r.ok) throw new Error("HTTP " + r.status);
+        if (!r.ok) {   // 提供元のエラー理由を拾ってメッセージに含める
+          let why = ""; try { const t = await r.text(); why = (JSON.parse(t).reason || t).toString().slice(0, 120); } catch {}
+          throw new Error(`HTTP ${r.status}${why ? "：" + why : ""}`);
+        }
         return r;
       } finally { clearTimeout(t); }
     };
@@ -208,7 +211,14 @@ const Data = (() => {
       hourly: "temperature_2m,precipitation_probability,weather_code,is_day",
       daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max"
     });
-    return cached(u, 600, () => j(u));
+    // 一部の項目が使えない地域・モデルでも表示できるよう、失敗したら最低限の項目で取り直す
+    const u2 = "https://api.open-meteo.com/v1/forecast?" + new URLSearchParams({
+      latitude: lat, longitude: lon, timezone: "auto", forecast_days: "7",
+      current: "temperature_2m,relative_humidity_2m,weather_code,is_day,wind_speed_10m,wind_direction_10m",
+      hourly: "temperature_2m,precipitation_probability,weather_code,is_day",
+      daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset"
+    });
+    return cached(u, 600, () => first([() => j(u), () => j(u2)]));
   }
 
   /* ---------- 読み上げ（ブラウザ標準） ---------- */
