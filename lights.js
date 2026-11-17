@@ -274,51 +274,91 @@
     ["ペギーズ・ポイント灯台", "カナダ・ノバスコシア州", 44.4917, -63.9183]
   ];
   const STAY = 28000;   // 1か所に滞在する時間
-  let touring = false, tourI = 0, tourT, flying = false;
+  let touring = false, tourT, flying = false, hist = [], hi = -1, tileCache = new Map();
 
-  function nearestMajor(lat, lon) {
-    let best = null, bd = 6;   // 6km以内で、いちばん光の届く灯りを「その灯台」とみなす（光り方が登録された灯りを優先）
+  /* 次に訪ねる灯台を選ぶ：
+     灯台データ（data/lights/）の区画を、灯りの数の平方根に比例した確率でランダムに選び（灯りの多いヨーロッパばかりにならないように）、
+     その区画から「光り方が登録された大きな灯台」をランダムに1つ選ぶ。データがまだ無いときは有名な灯台のリストから選ぶ */
+  async function pickStop() {
+    const idx = await getIndex();
+    if (idx) {
+      const keys = Object.keys(idx.tiles), w = keys.map(k => Math.sqrt(idx.tiles[k])), sum = w.reduce((a, b) => a + b, 0);
+      for (let tries = 0; tries < 8; tries++) {
+        let r = Math.random() * sum, k = keys[0];
+        for (let i = 0; i < keys.length; i++) { r -= w[i]; if (r <= 0) { k = keys[i]; break; } }
+        let rows = tileCache.get(k);
+        if (!rows) { try { rows = await (await fetch(`data/lights/${k}.json`)).json(); tileCache.set(k, rows); } catch { continue; } }
+        const big = rows.filter(x => x[4] && (/light_major|landmark|light_vessel/.test(x[3] || "") || (x[8] || 0) >= 12));
+        if (!big.length) continue;
+        const named = big.filter(x => x[2]);
+        const pool = named.length && Math.random() < .75 ? named : big;
+        const x = pool[Math.floor(Math.random() * pool.length)];
+        if (hist.slice(-20).some(h => Math.abs(h.lat - x[0]) < .01 && Math.abs(h.lon - x[1]) < .01) && tries < 7) continue;   // 最近訪ねた灯台は避ける
+        return { name: x[2] || "", lat: x[0], lon: x[1] };
+      }
+    }
+    const f = TOUR[Math.floor(Math.random() * TOUR.length)];
+    return { name: f[0], place: f[1], lat: f[2], lon: f[3] };
+  }
+  async function placeName(st) {   // 国・地域名（逆ジオコーディング）
+    if (st.place) return st.place;
+    try {
+      const d = await (await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${st.lat}&longitude=${st.lon}&localityLanguage=ja`)).json();
+      st.place = [d.countryName, d.principalSubdivision, d.locality].filter((v, i, a) => v && a.indexOf(v) === i).join("・") || "海の上";
+    } catch { st.place = `${Math.abs(st.lat).toFixed(2)}°${st.lat >= 0 ? "N" : "S"} ${Math.abs(st.lon).toFixed(2)}°${st.lon >= 0 ? "E" : "W"}`; }
+    return st.place;
+  }
+  function nearest(lat, lon) {
+    let best = null, bd = 6;   // 指定地点から6km以内で一番近い灯り（光り方が登録されたものを優先）
     for (const Lt of lights.values()) {
-      if (!Lt.known && best && best.known) continue;
-      const d = Geo.dist(lat, lon, Lt.ll[0], Lt.ll[1]);
-      if (d < bd && (!best || (Lt.rng || 0) > (best.rng || 0) || d < 1)) { bd = Math.max(d, 1); best = Lt; }
+      const d = Geo.dist(lat, lon, Lt.ll[0], Lt.ll[1]) + (Lt.known ? 0 : 3);
+      if (d < bd) { bd = d; best = Lt; }
     }
     return best;
   }
-  function tourCard(stop, Lt) {
+  function tourCard(st, Lt) {
     const c = $("#lt-tour");
     c.innerHTML = `
-      <div class="tour-h"><span class="mono muted small">${tourI + 1} / ${TOUR.length}</span>
-        <div class="tour-btns"><button class="btn sm icon" id="tr-prev" aria-label="前の灯台">${ic("i-chev", "sm rot90")}</button>
+      <div class="tour-h"><span class="muted small">灯台めぐり ・ <span class="mono">${hi + 1}</span>か所目</span>
+        <div class="tour-btns"><button class="btn sm icon" id="tr-prev" aria-label="前の灯台" ${hi <= 0 ? "disabled" : ""}>${ic("i-chev", "sm rot90")}</button>
         <button class="btn sm icon" id="tr-next" aria-label="次の灯台">${ic("i-chev", "sm rotm90")}</button>
         <button class="btn sm" id="tr-stop">${ic("i-x", "sm")}終了</button></div></div>
-      <div class="tour-name">${esc(stop[0])}</div>
-      <div class="muted small">${esc(stop[1])}</div>
-      <p class="lt-desc">${Lt ? (Lt.known ? esc(describe(Lt)) : `光り方が未登録のため、一般的な光り方（${esc(describe(Lt))}）で表示しています`) + (Lt.rng ? `。光は約${Math.round(Lt.rng * 1.852)}km先まで届きます` : "") : "この灯台は、データにまだ登録されていません"}</p>`;
+      <div class="tour-name">${esc(st.name || (Lt && Lt.name) || "名前のない灯台")}</div>
+      <div class="muted small">${esc(st.place || "場所を調べています…")}</div>
+      <p class="lt-desc">${Lt ? (Lt.known ? esc(describe(Lt)) : `光り方が未登録のため、一般的な光り方（${esc(describe(Lt))}）で表示しています`) + (Lt.rng ? `。光は約${Math.round(Lt.rng * 1.852)}km先まで届きます` : "") : flying ? "移動中…" : "灯台を探しています…"}</p>`;
     c.hidden = false;
-    $("#tr-prev").onclick = () => goStop(tourI - 1);
-    $("#tr-next").onclick = () => goStop(tourI + 1);
+    $("#tr-prev").onclick = () => { if (hi > 0) visit(hi - 1); };
+    $("#tr-next").onclick = () => next();
     $("#tr-stop").onclick = () => tour(false);
   }
-  function goStop(i) {
+  async function next() {
     clearTimeout(tourT);
-    tourI = ((i % TOUR.length) + TOUR.length) % TOUR.length;
-    const st = TOUR[tourI];
+    if (hi < hist.length - 1) return visit(hi + 1);
+    const st = await pickStop();
+    if (!touring) return;
+    hist.push(st); if (hist.length > 50) hist.shift();
+    visit(hist.length - 1);
+  }
+  function visit(i) {
+    clearTimeout(tourT);
+    hi = i; const st = hist[i];
     flying = true; sel = null; info(null);
     tourCard(st, null);
-    map.flyTo([st[2], st[3]], 12, { duration: 4 });
+    placeName(st).then(() => { if (hist[hi] === st && touring) tourCard(st, sel); });
+    map.flyTo([st.lat, st.lon], 12, { duration: 4 });
     map.once("moveend", async () => {
       flying = false;
       await load();
       for (let k = 0; busy && k < 60; k++) await new Promise(r => setTimeout(r, 250));   // 読み込み中なら終わるまで待つ
-      const Lt = nearestMajor(st[2], st[3]);
-      if (touring) { sel = Lt; tourCard(st, Lt); tourT = setTimeout(() => goStop(tourI + 1), STAY); }
+      if (!touring || hist[hi] !== st) return;
+      sel = nearest(st.lat, st.lon); tourCard(st, sel);
+      tourT = setTimeout(next, STAY);
     });
   }
   function tour(on) {
     touring = on; clearTimeout(tourT);
     $("#lt-tour-btn").classList.toggle("on", on);
-    if (on) goStop(tourI); else { $("#lt-tour").hidden = true; sel = null; }
+    if (on) { hist = []; hi = -1; next(); } else { $("#lt-tour").hidden = true; sel = null; }
   }
 
   App.reg("lights", {
