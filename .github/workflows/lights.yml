@@ -2,7 +2,7 @@ name: 灯台データの更新
 
 on:
   schedule:
-    - cron: "17 3 * * *"     # 毎日 12:17（日本時間）。作り直しは月1回、途中で止まった分はここで続きを再開
+    - cron: "17 3 3 * *"     # 毎月3日 12:17（日本時間）に作り直し
   workflow_dispatch:           # 手動実行（Actions タブの「Run workflow」）
   push:
     paths:
@@ -21,9 +21,11 @@ jobs:
     timeout-minutes: 290
     steps:
       - uses: actions/checkout@v4
+      - name: 道具を用意
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q osmium-tool
+          pip install -q osmium
       - name: 灯台データを取得
-        env:
-          BUDGET_MIN: "250"
         run: python3 -u tools/build_lights.py
       - name: 変更があればコミット
         if: always()

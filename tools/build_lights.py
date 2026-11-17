@@ -1,111 +1,60 @@
 #!/usr/bin/env python3
-"""世界の灯台・航路標識の灯りを Overpass API から集め、5度四方の区画ファイル（data/lights/）にまとめる。
+"""世界の灯台・航路標識の灯りを OpenStreetMap の全データ（planet ファイル）から抜き出し、
+5度四方の区画ファイル（data/lights/）にまとめる。
 
-公開サーバーは混雑しやすいので、次の工夫で「途中で止まっても無駄にならない」ようにしている。
-- 世界を10度四方のマスに分け、1マスずつ問い合わせる（失敗したらマスを4分割して取り直す）
-- 終わったマスは作業用フォルダ（data/lights_work/）にすぐ保存し、進み具合を state.json に記録
-- 実行時間の上限が近づいたら、そこまでの成果を保存して終了。次回の実行で続きから再開
-- 全マスが終わったら、完成したデータを data/lights/ に入れ替える
-GitHub Actions から毎日実行（月に1回だけ作り直し、それ以外の日は未完了分の続きか、何もせず終了）。
+混雑しやすい Overpass API は使わない。週1回公開される planet ファイル（約80GB）をダウンロードしながら
+osmium で灯りの付いた点だけを抜き出すので、ディスクはほとんど使わず、1回の実行で全世界分が揃う。
+GitHub Actions から月1回実行。
 """
-import csv, io, json, os, random, re, shutil, sys, time, urllib.parse, urllib.request
+import json, os, shutil, subprocess, sys, time, urllib.request
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
-OUT, WORK = os.path.join(ROOT, "lights"), os.path.join(ROOT, "lights_work")
-STATE = os.path.join(WORK, "state.json")
-STEP, CHUNK, MIN_CHUNK = 5, 30, 3.75         # 区画（度）・問い合わせマス（度）・分割の下限（度）
-BUDGET = float(os.environ.get("BUDGET_MIN", "250")) * 60   # この時間を過ぎたら新しいマスに手を付けない
-REBUILD_DAYS = 28
-ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter",
-             "https://overpass.kumi.systems/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
-             "https://overpass.osm.jp/api/interpreter"]
-FAILS = {e: 0 for e in ENDPOINTS}   # サーバーごとの最近の失敗回数（少ない所から使う）
+OUT = os.path.join(ROOT, "lights")
+TMP = os.environ.get("RUNNER_TEMP", "/tmp")
+FILTERED = os.path.join(TMP, "lights.osm.pbf")
+STEP = 5
+MIRRORS = [
+    "https://ftp.fau.de/osm-planet/pbf/planet-latest.osm.pbf",
+    "https://ftp5.gwdg.de/pub/misc/openstreetmap/planet.openstreetmap.org/pbf/planet-latest.osm.pbf",
+    "https://planet.maps.mail.ru/pbf/planet-latest.osm.pbf",
+    "https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf",
+]
+FILTER = ["n/seamark:light:character", "n/seamark:light:1:character", "n/man_made=lighthouse"]
 UA = "Driftboard lights builder (+https://github.com/taisei866/driftboard)"
-COLS = ["::id", "::lat", "::lon", "seamark:type", "seamark:name", "name:ja", "name", "man_made"]
-for pre in ["seamark:light:", "seamark:light:1:"]:
-    COLS += [pre + k for k in ["character", "period", "colour", "sequence", "range", "height"]]
-T0 = time.time()
-ep_i = 0
 
 
 def log(*a):
     print(*a, flush=True)
 
 
-def wait_slot(ep):
-    """混雑状況(/api/status)を見て、空き枠ができるまで少し待つ。見られないサーバーはそのまま進む"""
+def extract(url):
+    """planet を流し読みして osmium に渡し、灯りの点だけを FILTERED に書き出す"""
+    log(f"ダウンロード開始：{url}")
+    p = subprocess.Popen(["osmium", "tags-filter", "-F", "pbf", "-", *FILTER, "-o", FILTERED, "--overwrite"],
+                         stdin=subprocess.PIPE)
+    got, t0, last = 0, time.time(), 0
     try:
-        with urllib.request.urlopen(urllib.request.Request(ep.replace("/interpreter", "/status"),
-                                                           headers={"User-Agent": UA}), timeout=15) as r:
-            txt = r.read().decode("utf-8", "replace")
-    except Exception:
-        return
-    if "slots available now" in txt or "available now" in txt:
-        return
-    secs = [int(x) for x in re.findall(r"in (\d+) seconds", txt)]
-    if secs:
-        w = min(min(secs) + 2, 90)
-        log(f"    空き待ち {w} 秒")
-        time.sleep(w)
-
-
-def fetch(s, w, n, e, tries=4):
-    """1マス分を問い合わせ。成功すれば表（行のリスト）、失敗すれば None。
-    失敗はすぐ見切って（短いタイムアウト）、別のサーバー・小さいマスに回す"""
-    cols = ",".join(c if c.startswith("::") else f'"{c}"' for c in COLS)
-    q = (f'[out:csv({cols};true;"\\t")][timeout:100];'
-         f'(node["seamark:light:character"]({s},{w},{n},{e});node["seamark:light:1:character"]({s},{w},{n},{e});'
-         f'node["man_made"="lighthouse"]({s},{w},{n},{e}););out;')
-    data = urllib.parse.urlencode({"data": q}).encode()
-    for t in range(tries):
-        ep = min(ENDPOINTS, key=lambda x: (FAILS[x], random.random()))
-        wait_slot(ep)
-        try:
-            with urllib.request.urlopen(urllib.request.Request(ep, data=data, headers={"User-Agent": UA}), timeout=120) as r:
-                txt = r.read().decode("utf-8")
-            if "runtime error" in txt[:500] or "<html" in txt[:200].lower() or "<?xml" in txt[:50]:
-                raise RuntimeError("server error")
-            FAILS[ep] = max(0, FAILS[ep] - 1)
-            return list(csv.reader(io.StringIO(txt), delimiter="\t"))
-        except Exception as ex:
-            FAILS[ep] += 1
-            log(f"    再試行 {t + 1}/{tries}（{ep.split('/')[2]}: {ex}）")
-            time.sleep(5 * (t + 1) + random.uniform(0, 8))
-    return None
-
-
-def collect(s, w, n, e, out):
-    """マスを取得。失敗したら4分割して取り直す。境界の重複は「マスの中にある点だけ採用」で防ぐ"""
-    rows = fetch(s, w, n, e)
-    if rows is None:
-        if (n - s) <= MIN_CHUNK:
-            log(f"    {s},{w} は取得できませんでした（次回の実行で再挑戦）")
-            return False
-        h = (n - s) / 2
-        log(f"    {s},{w} を4分割して取り直します")
-        return all([collect(a, b, a + h, b + h, out) for a in (s, s + h) for b in (w, w + h)])
-    if not rows:
-        return True
-    head = rows[0]
-    for r in rows[1:]:
-        d = dict(zip(head, r))
-        try:
-            lat, lon = float(d["@lat"]), float(d["@lon"])
-        except (KeyError, ValueError):
-            continue
-        if not (s <= lat < n and w <= lon < e):
-            continue
-        pre = "seamark:light:" if d.get("seamark:light:character") else "seamark:light:1:"
-        row = [round(lat, 4), round(lon, 4),
-               d.get("seamark:name") or d.get("name:ja") or d.get("name") or "",
-               d.get("seamark:type") or ("light_major" if d.get("man_made") == "lighthouse" else ""),
-               d.get(pre + "character") or "", num(d.get(pre + "period")), d.get(pre + "colour") or "",
-               d.get(pre + "sequence") or "", num(d.get(pre + "range")), num(d.get(pre + "height"))]
-        while row and row[-1] in ("", None):
-            row.pop()
-        out.append(row)
-    time.sleep(1)
-    return True
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=120) as r:
+            total = int(r.headers.get("Content-Length") or 0)
+            while True:
+                b = r.read(4 << 20)
+                if not b:
+                    break
+                p.stdin.write(b)
+                got += len(b)
+                if got - last >= 4 << 30:   # 4GB ごとに進み具合を表示
+                    last = got
+                    sp = got / (time.time() - t0) / 1e6
+                    pct = f"{got / total * 100:.0f}%" if total else ""
+                    log(f"  {got / 1e9:.0f}GB {pct}（{sp:.0f}MB/秒）")
+        p.stdin.close()
+        ok = p.wait() == 0 and (not total or got == total)
+    except Exception as ex:
+        log(f"  失敗：{ex}")
+        p.kill(); p.wait()
+        ok = False
+    log(f"  {'完了' if ok else '中断'}：{got / 1e9:.1f}GB / {(time.time() - t0) / 60:.0f}分")
+    return ok
 
 
 def num(v):
@@ -116,66 +65,53 @@ def num(v):
         return None
 
 
-def tile_key(lat, lon):
-    return f"{int((lat + 90) // STEP)}_{int((lon + 180) // STEP)}"
+def build_tiles():
+    import osmium
+    tiles = {}
 
+    class H(osmium.SimpleHandler):
+        def node(self, n):
+            if not n.location.valid():
+                return
+            t = {k.k: k.v for k in n.tags}
+            pre = "seamark:light:" if t.get("seamark:light:character") else "seamark:light:1:"
+            lat, lon = n.location.lat, n.location.lon
+            row = [round(lat, 4), round(lon, 4),
+                   t.get("seamark:name") or t.get("name:ja") or t.get("name") or "",
+                   t.get("seamark:type") or ("light_major" if t.get("man_made") == "lighthouse" else ""),
+                   t.get(pre + "character") or "", num(t.get(pre + "period")), t.get(pre + "colour") or "",
+                   t.get(pre + "sequence") or "", num(t.get(pre + "range")), num(t.get(pre + "height"))]
+            while row and row[-1] in ("", None):
+                row.pop()
+            k = f"{int((lat + 90) // STEP)}_{int((lon + 180) // STEP)}"
+            tiles.setdefault(k, []).append(row)
 
-def save_rows(rows):
-    by = {}
-    for r in rows:
-        by.setdefault(tile_key(r[0], r[1]), []).append(r)
-    for k, rs in by.items():
-        p = os.path.join(WORK, k + ".json")
-        old = json.load(open(p, encoding="utf-8")) if os.path.exists(p) else []
-        json.dump(old + rs, open(p, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    H().apply_file(FILTERED)
+    return tiles
 
 
 def main():
-    os.makedirs(WORK, exist_ok=True)
-    st = json.load(open(STATE)) if os.path.exists(STATE) else None
-    if st and st.get("chunk") != CHUNK:   # マスの大きさを変えたときは作り直し
-        st = None
-    built = None
-    if os.path.exists(os.path.join(OUT, "index.json")):
-        built = json.load(open(os.path.join(OUT, "index.json"))).get("built")
-    if st is None:
-        if built and (time.time() - time.mktime(time.strptime(built, "%Y-%m-%d"))) < REBUILD_DAYS * 86400:
-            log(f"データは {built} 作成で新しいため、今回は何もしません")
-            return
-        shutil.rmtree(WORK); os.makedirs(WORK)
-        st = {"started": time.strftime("%Y-%m-%d"), "chunk": CHUNK, "done": []}
-        log("新しく作り直しを始めます")
-    else:
-        log(f"前回の続きから再開します（完了 {len(st['done'])} マス）")
-
-    cells = [(s, w) for s in range(-90, 90, CHUNK) for w in range(-180, 180, CHUNK)]
-    todo = [c for c in cells if f"{c[0]},{c[1]}" not in st["done"]]
-    for i, (s, w) in enumerate(todo):
-        if time.time() - T0 > BUDGET:
-            log(f"時間の上限に近づいたため中断します（残り {len(todo) - i} マスは次回）")
-            break
-        rows = []
-        ok = collect(s, w, s + CHUNK, w + CHUNK, rows)
-        if ok:   # 一部でも失敗したマスは保存せず、次回まるごと取り直す（重複を防ぐ）
-            save_rows(rows)
-            st["done"].append(f"{s},{w}")
-        json.dump(st, open(STATE, "w"))
-        log(f"[{len(st['done'])}/{len(cells)}] {s:>4},{w:>5}：{len(rows)} 灯")
-
-    if len(st["done"]) < len(cells):
-        return
-    # 全マス完了 → 完成データに入れ替え
-    tiles = {}
-    for f in os.listdir(WORK):
-        if f.endswith(".json") and f != "state.json":
-            tiles[f[:-5]] = len(json.load(open(os.path.join(WORK, f), encoding="utf-8")))
-    os.remove(STATE)
-    if os.path.exists(OUT):
-        shutil.rmtree(OUT)
-    shutil.move(WORK, OUT)
-    json.dump({"step": STEP, "built": time.strftime("%Y-%m-%d"), "total": sum(tiles.values()), "tiles": tiles},
-              open(os.path.join(OUT, "index.json"), "w"), separators=(",", ":"))
-    log(f"完成：{sum(tiles.values())} 灯 / {len(tiles)} 区画")
+    if not any(extract(u) for u in MIRRORS):
+        log("どのミラーからも取得できませんでした。既存のデータはそのまま残します")
+        sys.exit(1)
+    tiles = build_tiles()
+    total = sum(len(v) for v in tiles.values())
+    if total < 10000:   # 明らかに少ないときは壊れたデータとみなして置き換えない
+        log(f"件数が少なすぎます（{total}）。既存のデータはそのまま残します")
+        sys.exit(1)
+    new = OUT + "_new"
+    shutil.rmtree(new, ignore_errors=True)
+    os.makedirs(new)
+    for k, rows in tiles.items():
+        json.dump(rows, open(os.path.join(new, k + ".json"), "w", encoding="utf-8"),
+                  ensure_ascii=False, separators=(",", ":"))
+    json.dump({"step": STEP, "built": time.strftime("%Y-%m-%d"), "total": total,
+               "tiles": {k: len(v) for k, v in tiles.items()}},
+              open(os.path.join(new, "index.json"), "w"), separators=(",", ":"))
+    shutil.rmtree(OUT, ignore_errors=True)
+    shutil.rmtree(os.path.join(ROOT, "lights_work"), ignore_errors=True)
+    shutil.move(new, OUT)
+    log(f"完成：{total} 灯 / {len(tiles)} 区画")
 
 
 if __name__ == "__main__":
