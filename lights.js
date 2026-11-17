@@ -115,7 +115,8 @@
     g.clearRect(0, 0, W, H);
     g.globalCompositeOperation = "lighter";
     for (const Lt of lights.values()) {
-      if (Lt.minor && z < 8) continue;   // 広い範囲ではブイなど小さな灯りを省いて軽くする
+      if (!lpass(Lt)) continue;
+      if (Lt.minor && z < 8 && !SMALL.includes(LF.kind)) continue;   // 広い範囲ではブイなど小さな灯りを省いて軽くする
       const p = map.latLngToContainerPoint(Lt.ll);
       if (p.x < -60 || p.y < -60 || p.x > W + 60 || p.y > H + 60) continue;
       const [lv, ci] = level(Lt, t), rgb = COL[Lt.col[ci]] || COL.white;
@@ -165,7 +166,7 @@
     try {
       const idx = await getIndex();
       if (idx) await loadTiles(idx, b); else await loadOverpass(b);
-      status(`${lights.size} 灯${idx ? ` ・ ${idx.built} 時点のデータ` : ""}`);
+      status(statusText()); fCount();
       if (!lights.size) toast("この範囲には灯台が見つかりませんでした。海沿いへ移動してみてください");
     } catch {
       status("灯台データを取得できませんでした。少し待ってから地図を動かしてください");
@@ -211,6 +212,66 @@
   }
   function status(t) { $("#lt-status").textContent = t; }
 
+  /* ---------- 種類・色・光り方で絞り込み、名前で検索 ---------- */
+  const LF = Object.assign({ kind: "all", color: "all", ch: "all", q: "" }, Store.get("ltFilter", {}));
+  const SMALL = ["minor", "buoy", "beacon"];
+  const LFS = {
+    kind: [["all", "すべて"], ["major", "灯台"], ["minor", "小型の灯台"], ["buoy", "灯浮標（ブイ）"], ["beacon", "立標"], ["vessel", "灯船"]],
+    color: [["all", "すべて"], ["white", "白"], ["red", "赤"], ["green", "緑"], ["yellow", "黄"]],
+    ch: [["all", "すべて"], ["Fl", "せん光"], ["LFl", "長せん光"], ["Q", "急せん光"], ["Oc", "明暗光"], ["Iso", "等明暗光"], ["F", "不動光"], ["Al", "互光（色が交互）"], ["Mo", "モールス符号"]]
+  };
+  const kindOf = Lt => /light_minor/.test(Lt.type) ? "minor" : /buoy/.test(Lt.type) ? "buoy" : /beacon/.test(Lt.type) ? "beacon" : /light_vessel|light_float/.test(Lt.type) ? "vessel" : "major";
+  const chOf = Lt => { const m = (Lt.ch || "").match(/^(Al\.)?(LFl|Fl|Oc|Iso|VQ|UQ|IQ|Q|Mo|F)/); return !m ? "" : m[1] ? "Al" : /Q$/.test(m[2]) ? "Q" : m[2]; };
+  function lpass(Lt) {
+    if (LF.kind !== "all" && kindOf(Lt) !== LF.kind) return false;
+    if (LF.color !== "all" && !Lt.col.includes(LF.color)) return false;
+    if (LF.ch !== "all" && (!Lt.known || chOf(Lt) !== LF.ch)) return false;
+    if (LF.q && !(Lt.name || "").toLowerCase().includes(LF.q.toLowerCase())) return false;
+    return true;
+  }
+  const nF = () => ["kind", "color", "ch"].filter(k => LF[k] !== "all").length + (LF.q ? 1 : 0);
+  function statusText() {
+    const shown = [...lights.values()].filter(lpass).length;
+    return nF() ? `${shown} / ${lights.size} 灯を表示中` : `${lights.size} 灯${index ? ` ・ ${index.built} 時点のデータ` : ""}`;
+  }
+  function fCount() {
+    const b = $("#lt-filter-btn"); if (!b) return;
+    b.classList.toggle("on", !!nF()); b.querySelector("span").textContent = nF() ? `絞り込み（${nF()}）` : "絞り込み";
+  }
+  function filterUI() {
+    const box = $("#lt-filter");
+    box.innerHTML = `
+      <div class="modal-h" style="font-size:15px"><span>灯りを探す</span><button class="btn icon sm" id="lf-x" aria-label="閉じる">${ic("i-x", "sm")}</button></div>
+      <div class="search-box"><svg class="ic"><use href="#i-search"/></svg><input id="lf-q" type="search" placeholder="名前で検索（例：犬吠埼、Lighthouse）" value="${esc(LF.q)}"></div>
+      <div id="lf-res" class="lf-res"></div>
+      ${Object.entries({ kind: "種類", color: "色", ch: "光り方" }).map(([k, l]) => `<div class="ff-h">${l}</div>
+        <div class="chips">${LFS[k].map(([v, t]) => `<button class="chip ${LF[k] === v ? "on" : ""}" data-k="${k}" data-v="${v}">${t}</button>`).join("")}</div>`).join("")}
+      <div class="ff-foot"><button class="btn sm" id="lf-reset">条件をクリア</button><span class="muted small" id="lf-count"></span></div>
+      <p class="muted small" style="margin:10px 0 0;line-height:1.6">今地図に読み込んでいる範囲から探します。別の海域は、地図を動かすと読み込まれます。</p>`;
+    box.onclick = e => {
+      e.stopPropagation();
+      const b = e.target.closest("[data-k]"), r = e.target.closest("[data-id]");
+      if (b) { LF[b.dataset.k] = b.dataset.v; applyF(); filterUI(); }
+      if (r) {
+        const Lt = lights.get(isNaN(r.dataset.id) ? r.dataset.id : +r.dataset.id) || lights.get(r.dataset.id);
+        if (Lt) { box.hidden = true; map.flyTo(Lt.ll, Math.max(map.getZoom(), 13), { duration: 1.2 }); sel = Lt; info(Lt); }
+      }
+    };
+    $("#lf-x").onclick = () => box.hidden = true;
+    $("#lf-reset").onclick = () => { Object.assign(LF, { kind: "all", color: "all", ch: "all", q: "" }); applyF(); filterUI(); };
+    let qt; $("#lf-q").oninput = e => { clearTimeout(qt); qt = setTimeout(() => { LF.q = e.target.value.trim(); applyF(); results(); }, 250); };
+    results();
+  }
+  function results() {
+    const box = $("#lf-res"); if (!box) return;
+    const list = [...lights.values()].filter(Lt => lpass(Lt) && Lt.name).sort((a, b) => (b.rng || 0) - (a.rng || 0)).slice(0, 30);
+    const shown = [...lights.values()].filter(lpass).length;
+    $("#lf-count").textContent = `${shown} / ${lights.size} 灯`;
+    box.innerHTML = (LF.q || nF()) ? (list.map(Lt => `<div class="lf-row" data-id="${Lt.id}"><b>${esc(Lt.name)}</b><small>${LFS.kind.find(k => k[0] === kindOf(Lt))[1]} ・ ${esc(Lt.known ? Lt.ch + (Lt.per ? " " + Lt.per + "s" : "") : "光り方未登録")}</small></div>`).join("")
+      || `<div class="empty" style="padding:8px 2px">名前のある灯りが見つかりません</div>`) : "";
+  }
+  function applyF() { Store.set("ltFilter", LF); status(statusText()); fCount(); if (sel && !lpass(sel)) { sel = null; info(null); } }
+
   function info(Lt) {
     const box = $("#lt-info");
     if (!Lt) { box.hidden = true; return; }
@@ -238,10 +299,13 @@
     map.on("moveend", () => { clearTimeout(moveT); moveT = setTimeout(load, 700); });
     map.on("dragstart", () => { if (touring && !flying) tour(false); });   // 自分で地図を動かしたらツアーを止める
     $("#lt-tour-btn").onclick = () => tour(!touring);
+    $("#lt-filter-btn").onclick = e => { e.stopPropagation(); const b = $("#lt-filter"); b.hidden = !b.hidden; if (!b.hidden) filterUI(); };
+    document.addEventListener("click", e => { const b = $("#lt-filter"); if (b && !b.hidden && !b.contains(e.target)) b.hidden = true; });
+    fCount();
     map.on("click", e => {
       const p = e.containerPoint; let best = null, bd = 24;
       const zz = map.getZoom();
-      for (const Lt of lights.values()) { if (Lt.minor && zz < 8) continue; const q = map.latLngToContainerPoint(Lt.ll), d = Math.hypot(q.x - p.x, q.y - p.y); if (d < bd) { bd = d; best = Lt; } }
+      for (const Lt of lights.values()) { if (!lpass(Lt) || (Lt.minor && zz < 8 && !SMALL.includes(LF.kind))) continue; const q = map.latLngToContainerPoint(Lt.ll), d = Math.hypot(q.x - p.x, q.y - p.y); if (d < bd) { bd = d; best = Lt; } }
       sel = best; info(best);
     });
     $("#lt-spots").innerHTML = `<option value="" disabled selected>灯台の多い海域へ移動…</option>` + SPOTS.map(([n], i) => `<option value="${i}">${i ? n : "現在地の近く"}</option>`).join("");

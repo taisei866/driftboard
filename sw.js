@@ -1,5 +1,5 @@
 /* Driftboard service worker: 自分のファイルはキャッシュして高速起動（裏で更新） */
-const CACHE = "driftboard-v13";
+const CACHE = "driftboard-v14";
 const CORE = ["./", "index.html", "config.js", "style.css", "app.js", "nightmap.js", "data.js", "setup.js", "flights.js", "weather.js", "radio.js", "space.js", "sky.js", "clock.js", "wind.js", "lights.js", "obs.js",
   "ambient.js", "lib/leaflet.js", "lib/leaflet.css", "lib/satellite.min.js", "lib/astronomy.browser.min.js",
   "data/sky.json", "img/day.jpg", "img/night.jpg", "icons/icon-192.png"];
