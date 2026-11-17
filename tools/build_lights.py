@@ -8,16 +8,18 @@
 - 全マスが終わったら、完成したデータを data/lights/ に入れ替える
 GitHub Actions から毎日実行（月に1回だけ作り直し、それ以外の日は未完了分の続きか、何もせず終了）。
 """
-import csv, io, json, os, shutil, sys, time, urllib.parse, urllib.request
+import csv, io, json, os, random, re, shutil, sys, time, urllib.parse, urllib.request
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
 OUT, WORK = os.path.join(ROOT, "lights"), os.path.join(ROOT, "lights_work")
 STATE = os.path.join(WORK, "state.json")
-STEP, CHUNK, MIN_CHUNK = 5, 10, 2.5          # 区画（度）・問い合わせマス（度）・分割の下限（度）
+STEP, CHUNK, MIN_CHUNK = 5, 30, 3.75         # 区画（度）・問い合わせマス（度）・分割の下限（度）
 BUDGET = float(os.environ.get("BUDGET_MIN", "250")) * 60   # この時間を過ぎたら新しいマスに手を付けない
 REBUILD_DAYS = 28
 ENDPOINTS = ["https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter",
-             "https://overpass.kumi.systems/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter"]
+             "https://overpass.kumi.systems/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+             "https://overpass.osm.jp/api/interpreter"]
+FAILS = {e: 0 for e in ENDPOINTS}   # サーバーごとの最近の失敗回数（少ない所から使う）
 UA = "Driftboard lights builder (+https://github.com/taisei866/driftboard)"
 COLS = ["::id", "::lat", "::lon", "seamark:type", "seamark:name", "name:ja", "name", "man_made"]
 for pre in ["seamark:light:", "seamark:light:1:"]:
@@ -30,26 +32,45 @@ def log(*a):
     print(*a, flush=True)
 
 
-def fetch(s, w, n, e, tries=3):
-    """1マス分を問い合わせ。成功すれば表（行のリスト）、失敗すれば None"""
-    global ep_i
+def wait_slot(ep):
+    """混雑状況(/api/status)を見て、空き枠ができるまで少し待つ。見られないサーバーはそのまま進む"""
+    try:
+        with urllib.request.urlopen(urllib.request.Request(ep.replace("/interpreter", "/status"),
+                                                           headers={"User-Agent": UA}), timeout=15) as r:
+            txt = r.read().decode("utf-8", "replace")
+    except Exception:
+        return
+    if "slots available now" in txt or "available now" in txt:
+        return
+    secs = [int(x) for x in re.findall(r"in (\d+) seconds", txt)]
+    if secs:
+        w = min(min(secs) + 2, 90)
+        log(f"    空き待ち {w} 秒")
+        time.sleep(w)
+
+
+def fetch(s, w, n, e, tries=4):
+    """1マス分を問い合わせ。成功すれば表（行のリスト）、失敗すれば None。
+    失敗はすぐ見切って（短いタイムアウト）、別のサーバー・小さいマスに回す"""
     cols = ",".join(c if c.startswith("::") else f'"{c}"' for c in COLS)
-    q = (f'[out:csv({cols};true;"\\t")][timeout:180];'
+    q = (f'[out:csv({cols};true;"\\t")][timeout:100];'
          f'(node["seamark:light:character"]({s},{w},{n},{e});node["seamark:light:1:character"]({s},{w},{n},{e});'
          f'node["man_made"="lighthouse"]({s},{w},{n},{e}););out;')
     data = urllib.parse.urlencode({"data": q}).encode()
     for t in range(tries):
-        ep = ENDPOINTS[ep_i % len(ENDPOINTS)]
+        ep = min(ENDPOINTS, key=lambda x: (FAILS[x], random.random()))
+        wait_slot(ep)
         try:
-            with urllib.request.urlopen(urllib.request.Request(ep, data=data, headers={"User-Agent": UA}), timeout=200) as r:
+            with urllib.request.urlopen(urllib.request.Request(ep, data=data, headers={"User-Agent": UA}), timeout=120) as r:
                 txt = r.read().decode("utf-8")
-            if "runtime error" in txt[:500] or "<html" in txt[:200].lower():
+            if "runtime error" in txt[:500] or "<html" in txt[:200].lower() or "<?xml" in txt[:50]:
                 raise RuntimeError("server error")
+            FAILS[ep] = max(0, FAILS[ep] - 1)
             return list(csv.reader(io.StringIO(txt), delimiter="\t"))
         except Exception as ex:
-            ep_i += 1   # 次は別のサーバーへ
-            log(f"    再試行 {t + 1}/{tries}（{ex}）")
-            time.sleep(10 * (t + 1))
+            FAILS[ep] += 1
+            log(f"    再試行 {t + 1}/{tries}（{ep.split('/')[2]}: {ex}）")
+            time.sleep(5 * (t + 1) + random.uniform(0, 8))
     return None
 
 
@@ -112,6 +133,8 @@ def save_rows(rows):
 def main():
     os.makedirs(WORK, exist_ok=True)
     st = json.load(open(STATE)) if os.path.exists(STATE) else None
+    if st and st.get("chunk") != CHUNK:   # マスの大きさを変えたときは作り直し
+        st = None
     built = None
     if os.path.exists(os.path.join(OUT, "index.json")):
         built = json.load(open(os.path.join(OUT, "index.json"))).get("built")
@@ -120,19 +143,19 @@ def main():
             log(f"データは {built} 作成で新しいため、今回は何もしません")
             return
         shutil.rmtree(WORK); os.makedirs(WORK)
-        st = {"started": time.strftime("%Y-%m-%d"), "done": []}
+        st = {"started": time.strftime("%Y-%m-%d"), "chunk": CHUNK, "done": []}
         log("新しく作り直しを始めます")
     else:
         log(f"前回の続きから再開します（完了 {len(st['done'])} マス）")
 
-    cells = [(s, w) for s in range(-80, 90, CHUNK) for w in range(-180, 180, CHUNK)]
+    cells = [(s, w) for s in range(-90, 90, CHUNK) for w in range(-180, 180, CHUNK)]
     todo = [c for c in cells if f"{c[0]},{c[1]}" not in st["done"]]
     for i, (s, w) in enumerate(todo):
         if time.time() - T0 > BUDGET:
             log(f"時間の上限に近づいたため中断します（残り {len(todo) - i} マスは次回）")
             break
         rows = []
-        ok = collect(s, w, min(s + CHUNK, 90), w + CHUNK, rows)
+        ok = collect(s, w, s + CHUNK, w + CHUNK, rows)
         if ok:   # 一部でも失敗したマスは保存せず、次回まるごと取り直す（重複を防ぐ）
             save_rows(rows)
             st["done"].append(f"{s},{w}")
