@@ -140,11 +140,13 @@
   function addLight(id, lat, lon, f) {
     if (lights.has(id)) return;
     const cols = (f.col || "").split(/[;,]/).map(c => c.trim()).filter(c => COL[c]);
-    const known = !!f.ch;
+    const known = !!f.ch, minor = /buoy|beacon|minor/.test(f.type || "");
+    // 光り方が未登録の灯りは、一般的な光り方（白色のせん光。灯台は10秒、小さな灯りは4秒ごと）で光らせる
+    if (!known) { f = { ...f, ch: "Fl", per: minor ? 4 : 10 }; }
     const Lt = { id, ll: [lat, lon], ch: f.ch || "", per: +f.per || 0, seq: f.seq || "", col: cols.length ? cols : ["white"], rng: +f.rng || 0, h: +f.h || 0, known };
     Lt.name = f.name || ""; Lt.type = f.type || "";
     Lt.minor = /buoy|beacon|minor/.test(Lt.type);
-    Lt.segs = known ? pattern(Lt) : [{ d: 1, on: false, c: 0 }];
+    Lt.segs = pattern(Lt);
     Lt.total = Lt.segs.reduce((a, x) => a + x.d, 0) || 1;
     Lt.phase = (hash(String(id)) % 997) / 997 * Lt.total;
     lights.set(id, Lt);
@@ -216,7 +218,7 @@
     box.innerHTML = `
       <div class="modal-h" style="font-size:16px"><span>${esc(Lt.name || "名前のない" + TYPE_JA(Lt.type))}</span><button class="btn icon sm" id="lt-x" aria-label="閉じる">${ic("i-x", "sm")}</button></div>
       <div class="muted small">${TYPE_JA(Lt.type)}</div>
-      <p class="lt-desc">${Lt.known ? esc(describe(Lt)) : "光り方の情報が登録されていません"}</p>
+      <p class="lt-desc">${Lt.known ? esc(describe(Lt)) : "光り方の情報が登録されていないため、一般的な光り方（" + esc(describe(Lt)) + "）で表示しています"}</p>
       <div class="fd-grid">
         ${Lt.known ? `<div><small>灯質</small><b class="mono">${esc(Lt.ch)}${Lt.per ? " " + Lt.per + "s" : ""}</b></div>` : ""}
         ${rng ? `<div><small>光達距離</small><b>${rng}</b></div>` : ""}
@@ -275,9 +277,9 @@
   let touring = false, tourI = 0, tourT, flying = false;
 
   function nearestMajor(lat, lon) {
-    let best = null, bd = 6;   // 6km以内で、いちばん光の届く灯りを「その灯台」とみなす
+    let best = null, bd = 6;   // 6km以内で、いちばん光の届く灯りを「その灯台」とみなす（光り方が登録された灯りを優先）
     for (const Lt of lights.values()) {
-      if (!Lt.known) continue;
+      if (!Lt.known && best && best.known) continue;
       const d = Geo.dist(lat, lon, Lt.ll[0], Lt.ll[1]);
       if (d < bd && (!best || (Lt.rng || 0) > (best.rng || 0) || d < 1)) { bd = Math.max(d, 1); best = Lt; }
     }
@@ -292,7 +294,7 @@
         <button class="btn sm" id="tr-stop">${ic("i-x", "sm")}終了</button></div></div>
       <div class="tour-name">${esc(stop[0])}</div>
       <div class="muted small">${esc(stop[1])}</div>
-      <p class="lt-desc">${Lt ? esc(describe(Lt)) + (Lt.rng ? `。光は約${Math.round(Lt.rng * 1.852)}km先まで届きます` : "") : "この灯台の光り方は、データにまだ登録されていません"}</p>`;
+      <p class="lt-desc">${Lt ? (Lt.known ? esc(describe(Lt)) : `光り方が未登録のため、一般的な光り方（${esc(describe(Lt))}）で表示しています`) + (Lt.rng ? `。光は約${Math.round(Lt.rng * 1.852)}km先まで届きます` : "") : "この灯台は、データにまだ登録されていません"}</p>`;
     c.hidden = false;
     $("#tr-prev").onclick = () => goStop(tourI - 1);
     $("#tr-next").onclick = () => goStop(tourI + 1);
