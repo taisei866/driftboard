@@ -7,6 +7,7 @@ on:
   push:
     paths:
       - "tools/build_lights.py"
+      - ".github/workflows/lights.yml"
 
 permissions:
   contents: write
@@ -32,7 +33,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A data/lights data/lights_work 2>/dev/null || true
+          git add -A data/
           if git diff --cached --quiet; then echo "変更なし"; exit 0; fi
           git commit -m "灯台データを更新（$(date -u +%Y-%m-%d)）"
           git pull --rebase origin main
