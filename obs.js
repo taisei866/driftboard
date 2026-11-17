@@ -12,9 +12,83 @@
     { n: "木曽観測所", p: "日本・長野県", lat: 35.7972, lon: 137.6253, alt: 1130 },
     { n: "なよろ市立天文台", p: "日本・北海道名寄市", lat: 44.3747, lon: 142.4836, alt: 150 }
   ];
-  let visible = false, last = 0, loopT, rows = [];
+  let visible = false, last = 0, loopT, rows = [], selI = -1, raf, comp, lastComp = 0, pts = [];
 
-  function init() {}
+  function init() {
+    comp = document.createElement("canvas");
+    NightMap.init().then(() => { NightMap.compose(comp, .5); lastComp = Date.now(); });
+    const cv = $("#obs-map");
+    cv.addEventListener("click", e => {
+      const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+      let best = -1, bd = 26;
+      pts.forEach(p => { const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = p.i; } });
+      select(best);
+    });
+    $("#obs-list").addEventListener("click", e => { const c = e.target.closest("[data-k]"); if (c) select(+c.dataset.k, false); });
+  }
+  function select(i, scroll = true) {
+    selI = i === selI ? -1 : i;
+    $$("#obs-list .obs-card").forEach(c => c.classList.toggle("sel", +c.dataset.k === selI));
+    const r = rows[selI];
+    $("#obs-pop").hidden = !r;
+    if (r) {
+      $("#obs-pop").innerHTML = `<b>${esc(r.s.n)}</b> <span class="muted small">${esc(r.s.p)}</span><br>
+        <span class="badge ${lvl(r.score)}">${esc(r.state)}</span> <span class="small">現地 <span class="mono">${hmTz(Date.now(), r.tz)}</span> ・ 雲 <span class="mono">${r.cc0 ?? "-"}%</span></span>`;
+      if (scroll) { const c = $(`#obs-list [data-k="${selI}"]`); c && c.scrollIntoView({ behavior: "smooth", block: "nearest" }); }
+    }
+  }
+
+  /* 地図：夜側の地球に、天文台を星として描く。晴れた夜ほど明るくまたたく */
+  function draw(t) {
+    raf = requestAnimationFrame(draw);
+    if (!visible) return;
+    if (Date.now() - lastComp > 60000 && NightMap.compose(comp, .5)) lastComp = Date.now();
+    const cv = $("#obs-map"), dpr = devicePixelRatio || 1, W = cv.clientWidth, H = W / 2;
+    if (!W) return;
+    if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+    const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.fillStyle = "#04060a"; g.fillRect(0, 0, W, H);
+    if (lastComp) g.drawImage(comp, 0, 0, W, H);
+    const X = lon => (lon + 180) / 360 * W, Y = lat => (90 - lat) / 180 * H, s = t / 1000;
+    pts = []; const labels = [];
+    rows.forEach((r, i) => {
+      const x = X(r.s.lon), y = Y(r.s.lat), on = i === selI;
+      pts.push({ x, y, i });
+      const night = r.sa0 < -12, clear = (r.cc0 ?? 100) <= 25, sc = Math.max(.8, W / 900);
+      if (night && clear) {   // 晴れた夜：明るくまたたく星
+        const tw = .75 + .25 * Math.sin(s * 2.3 + i * 1.7) * Math.sin(s * 1.1 + i);
+        const rad = (r.score >= 5 ? 16 : 12) * sc * tw;
+        const gr = g.createRadialGradient(x, y, 0, x, y, rad);
+        gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(.18, "rgba(170,210,255,.85)"); gr.addColorStop(1, "rgba(79,156,240,0)");
+        g.fillStyle = gr; g.beginPath(); g.arc(x, y, rad, 0, 7); g.fill();
+        g.strokeStyle = `rgba(220,235,255,${.55 * tw})`; g.lineWidth = 1;
+        g.beginPath(); g.moveTo(x - rad * 1.3, y); g.lineTo(x + rad * 1.3, y); g.moveTo(x, y - rad * 1.3); g.lineTo(x, y + rad * 1.3); g.stroke();
+      } else if (night) {   // 曇った夜：ぼんやりした星と雲
+        g.fillStyle = "rgba(150,160,175,.55)"; g.beginPath(); g.arc(x, y, 3 * sc, 0, 7); g.fill();
+        g.fillStyle = `rgba(120,128,140,${.18 + (r.cc0 || 0) / 400})`;
+        [[-5, 1, 6], [2, -1, 7], [8, 2, 5]].forEach(([dx, dy, rr]) => { g.beginPath(); g.arc(x + dx * sc, y + dy * sc, rr * sc, 0, 7); g.fill(); });
+      } else {   // 昼・薄明：小さな点
+        g.fillStyle = "rgba(255,255,255,.35)"; g.beginPath(); g.arc(x, y, 2.5 * sc, 0, 7); g.fill();
+      }
+      if (r.s.home) { g.strokeStyle = "rgba(79,156,240,.9)"; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, 9 * sc, 0, 7); g.stroke(); }
+      if (on) {
+        const ph = (s % 1.6) / 1.6;
+        g.strokeStyle = `rgba(255,255,255,${1 - ph})`; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, (8 + ph * 18) * sc, 0, 7); g.stroke();
+      }
+      if (W >= 520 || on || r.s.home) {
+        g.font = `500 ${Math.max(10, Math.min(12.5, W / 80))}px "Zen Kaku Gothic New",system-ui,sans-serif`;
+        g.fillStyle = night && clear ? "rgba(235,242,255,.95)" : "rgba(200,206,215,.6)";
+        const right = x > W - 120, tw = g.measureText(r.s.n).width, lx = right ? x - 12 * sc - tw : x + 12 * sc;
+        let ly = y - 6 * sc;
+        for (const dy of [-6, 12, -22, 28, -38]) {   // 近くの天文台と名前が重ならないよう上下にずらす
+          const yy = y + dy * sc;
+          if (!labels.some(b => lx < b[0] + b[2] && lx + tw > b[0] && yy - 11 < b[1] && yy + 2 > b[1] - 13)) { ly = yy; break; }
+        }
+        labels.push([lx, ly, tw]);
+        g.textAlign = "left"; g.fillText(r.s.n, lx, ly);
+      }
+    });
+  }
   const barCol = cc => { const k = Math.min(1, cc / 100); return `rgb(${Math.round(79 + (58 - 79) * k)},${Math.round(156 + (63 - 156) * k)},${Math.round(240 + (72 - 240) * k)})`; };
 
   const sunAlt = (o, d) => { const e = Astronomy.Equator("Sun", d, o, true, true); return Astronomy.Horizon(d, o, e.ra, e.dec, "normal").altitude; };
@@ -75,7 +149,7 @@
       const win = r.best
         ? `今夜の好条件：<b class="mono">${hmTz(r.best.start, r.tz)}〜${hmTz(r.best.end + 3600e3, r.tz)}</b>（現地）${r.best.moonless ? " ・ 月なし" : ""}`
         : "これから24時間、好条件（暗くて雲が少ない）の時間帯はありません";
-      return `<div class="obs-card ${r.s.home ? "home" : ""}" data-i="${i}">
+      return `<div class="obs-card ${r.s.home ? "home" : ""} ${rows.indexOf(r) === selI ? "sel" : ""}" data-k="${rows.indexOf(r)}">
         <div class="obs-top">
           <div style="min-width:0"><div class="obs-name">${esc(r.s.n)}${r.s.home ? `<span class="here">現在地</span>` : ""}</div><div class="muted small obs-place">${esc(r.s.p)}</div></div>
           <div class="obs-now"><span class="mono">${hmTz(Date.now(), r.tz)}</span><span class="badge ${lvl(r.score)}">${esc(r.state)}</span></div>
@@ -96,9 +170,10 @@
     init,
     show() {
       visible = true;
+      cancelAnimationFrame(raf); raf = requestAnimationFrame(draw);
       if (Date.now() - last > 15 * 60000) load(); else render();
       clearInterval(loopT); loopT = setInterval(() => visible && load(), 20 * 60000);
     },
-    hide() { visible = false; clearInterval(loopT); }
+    hide() { visible = false; clearInterval(loopT); cancelAnimationFrame(raf); }
   });
 })();

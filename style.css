@@ -514,3 +514,17 @@ body.amb .lt-tour .tour-btns{display:none}
 .badge.off{opacity:.6}
 @media (max-width:600px){ .obs-grid{grid-template-columns:minmax(0,1fr)} }
 @media (max-width:600px){ .lt-tour{left:10px;transform:none;width:calc(100% - 64px)} }
+
+/* 天文台の地図 */
+.obs-mapbox{position:relative;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);background:#04060a;margin-bottom:10px}
+#obs-map{display:block;width:100%;aspect-ratio:2/1;cursor:pointer}
+.obs-legend{position:absolute;left:10px;bottom:8px;display:flex;gap:12px;color:rgba(232,234,237,.75);background:rgba(4,6,10,.6);padding:4px 10px;border-radius:6px}
+.obs-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:0}
+.lg-star{background:#fff;box-shadow:0 0 6px 2px rgba(120,180,255,.8)}
+.lg-cloud{background:#8a919c}
+.lg-day{background:rgba(255,255,255,.35)}
+.obs-pop{position:absolute;right:10px;top:10px;max-width:min(320px,70%);background:rgba(16,18,22,.92);border:1px solid var(--line2);border-radius:10px;padding:8px 12px;font-size:14px;line-height:1.7}
+.obs-card{cursor:pointer}
+.obs-card.sel{border-color:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.5)}
+@media (max-width:600px){ .obs-legend{gap:8px;font-size:10.5px;padding:3px 8px} }
+@media (max-width:600px){ .obs-pop{position:static;max-width:none;border-radius:0;border:0;border-top:1px solid var(--line2)} }

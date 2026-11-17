@@ -274,7 +274,12 @@
   <!-- 天文台 -->
   <section id="tab-obs" class="tab scroll">
     <div class="obs-wrap">
-      <div class="panel obs-hero"><div class="panel-h"><span>今夜、星が見える天文台</span></div><div id="obs-top">読み込み中…</div></div>
+      <div class="obs-mapbox">
+        <canvas id="obs-map"></canvas>
+        <div class="obs-legend small"><span><i class="lg-star"></i>晴れた夜</span><span><i class="lg-cloud"></i>曇った夜</span><span><i class="lg-day"></i>昼・薄明</span></div>
+        <div id="obs-pop" class="obs-pop" hidden></div>
+      </div>
+      <div class="panel obs-hero"><div id="obs-top">読み込み中…</div></div>
       <div id="obs-list" class="obs-grid"></div>
       <p class="muted small credit">帯は今から24時間の雲の量（明るい青ほど晴れ・灰色ほど曇り）。薄い部分は昼、少し薄い部分は薄明です。「好条件」は、空が十分に暗く（太陽高度−18°以下）、雲が25%以下の時間帯です。雲の予報：Open-Meteo</p>
     </div>
@@ -323,6 +328,7 @@
 <script src="lib/satellite.min.js"></script>
 <script src="lib/astronomy.browser.min.js"></script>
 <script src="app.js"></script>
+<script src="nightmap.js"></script>
 <script src="data.js"></script>
 <script src="setup.js"></script>
 <script src="flights.js"></script>
