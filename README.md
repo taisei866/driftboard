@@ -43,7 +43,7 @@
 - 宇宙天気・オーロラ：[NOAA SWPC](https://www.swpc.noaa.gov)、ISS 軌道：[CelesTrak](https://celestrak.org)
 - 太陽画像：NASA SDO / ESA・NASA SOHO、地球の実写：NASA DSCOVR EPIC
 - 天気・地名検索：[Open-Meteo](https://open-meteo.com)、逆ジオコーディング：[BigDataCloud](https://www.bigdatacloud.com)
-- 灯台：OpenStreetMap の航路標識データ（[Overpass API](https://overpass-api.de)）
+- 灯台：OpenStreetMap の航路標識データ（[Overpass API](https://overpass-api.de)）。`tools/build_lights.py` を GitHub Actions で毎月実行し、`data/lights/` に区画ごとにまとめて配信
 - 地図：© [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors
 
 ## 同梱ライブラリ・データ

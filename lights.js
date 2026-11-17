@@ -104,6 +104,7 @@
     g.clearRect(0, 0, W, H);
     g.globalCompositeOperation = "lighter";
     for (const Lt of lights.values()) {
+      if (Lt.minor && z < 8) continue;   // 広い範囲ではブイなど小さな灯りを省いて軽くする
       const p = map.latLngToContainerPoint(Lt.ll);
       if (p.x < -60 || p.y < -60 || p.x > W + 60 || p.y > H + 60) continue;
       const [lv, ci] = level(Lt, t), rgb = COL[Lt.col[ci]] || COL.white;
@@ -121,48 +122,80 @@
     }
   }
 
-  /* ---------- 読み込み（Overpass API） ---------- */
+  /* ---------- 読み込み ----------
+     ① 事前にまとめた灯台データ（data/lights/、GitHub Actions で毎月更新）を区画ごとに読む
+     ② まだデータが無い場合だけ、公開サーバー（Overpass API）に直接問い合わせる */
+  const hash = s => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); };
+  function addLight(id, lat, lon, f) {
+    if (lights.has(id)) return;
+    const cols = (f.col || "").split(/[;,]/).map(c => c.trim()).filter(c => COL[c]);
+    const known = !!f.ch;
+    const Lt = { id, ll: [lat, lon], ch: f.ch || "", per: +f.per || 0, seq: f.seq || "", col: cols.length ? cols : ["white"], rng: +f.rng || 0, h: +f.h || 0, known };
+    Lt.name = f.name || ""; Lt.type = f.type || "";
+    Lt.minor = /buoy|beacon|minor/.test(Lt.type);
+    Lt.segs = known ? pattern(Lt) : [{ d: 1, on: false, c: 0 }];
+    Lt.total = Lt.segs.reduce((a, x) => a + x.d, 0) || 1;
+    Lt.phase = (hash(String(id)) % 997) / 997 * Lt.total;
+    lights.set(id, Lt);
+  }
+
+  let index, tilesDone = new Set();
+  async function getIndex() {
+    if (index !== undefined) return index;
+    try { const r = await fetch("data/lights/index.json"); index = r.ok ? await r.json() : null; } catch { index = null; }
+    return index;
+  }
   async function load() {
-    const z = map.getZoom(), b = map.getBounds().pad(.15);
-    if (z < 6) { status("拡大すると、その海域の灯台を読み込みます"); return; }
-    if (loaded && loaded.contains(map.getBounds())) return;
+    const z = map.getZoom(), b = map.getBounds().pad(.1);
+    if (z < 6) { status("拡大すると、その海域の灯台を表示します"); return; }
     if (busy) return; busy = true;
-    status("灯台を読み込み中…");
-    const bb = `${b.getSouth().toFixed(3)},${b.getWest().toFixed(3)},${b.getNorth().toFixed(3)},${b.getEast().toFixed(3)}`;
-    const q = `[out:json][timeout:25];(node["seamark:light:character"](${bb});node["seamark:light:1:character"](${bb});node["man_made"="lighthouse"](${bb}););out body 4000;`;
     try {
-      let d;
-      for (const ep of ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]) {
-        try {
-          const r = await fetch(ep, { method: "POST", body: "data=" + encodeURIComponent(q), headers: { "Content-Type": "application/x-www-form-urlencoded" } });
-          if (r.ok) { d = await r.json(); break; }
-        } catch {}
-      }
-      if (!d) throw new Error("overpass");
-      let added = 0;
-      for (const el of d.elements || []) {
-        if (lights.has(el.id)) continue;
-        const tg = el.tags || {}, S = sectorTags(tg);
-        const cols = S ? S.col.filter(c => COL[c]) : [];
-        const Lt = S ? { ch: S.ch, per: S.per, seq: S.seq, col: cols.length ? cols : ["white"], rng: S.rng, h: S.h, known: true }
-          : { ch: "", per: 0, col: ["white"], known: false };
-        Lt.id = el.id; Lt.ll = [el.lat, el.lon];
-        Lt.name = tg["seamark:name"] || tg["name:ja"] || tg.name || "";
-        Lt.type = tg["seamark:type"] || (tg.man_made === "lighthouse" ? "light_major" : "");
-        Lt.minor = /buoy|beacon|minor/.test(Lt.type);
-        Lt.segs = Lt.known ? pattern(Lt) : [{ d: 1, on: false, c: 0 }];
-        Lt.total = Lt.segs.reduce((a, x) => a + x.d, 0) || 1;
-        Lt.phase = (el.id % 997) / 997 * Lt.total;
-        lights.set(el.id, Lt); added++;
-      }
-      loaded = loaded ? (loaded.extend(b), loaded) : L_bounds(b);
-      status(`${lights.size} 灯を表示中`);
+      const idx = await getIndex();
+      if (idx) await loadTiles(idx, b); else await loadOverpass(b);
+      status(`${lights.size} 灯${idx ? ` ・ ${idx.built} 時点のデータ` : ""}`);
       if (!lights.size) toast("この範囲には灯台が見つかりませんでした。海沿いへ移動してみてください");
     } catch {
       status("灯台データを取得できませんでした。少し待ってから地図を動かしてください");
     } finally { busy = false; }
   }
-  const L_bounds = b => L.latLngBounds(b.getSouthWest(), b.getNorthEast());
+  async function loadTiles(idx, b) {
+    const st = idx.step, keys = [];
+    const la0 = Math.floor((b.getSouth() + 90) / st), la1 = Math.floor((b.getNorth() + 90) / st);
+    const lo0 = Math.floor((b.getWest() + 180) / st), lo1 = Math.floor((b.getEast() + 180) / st), nLon = 360 / st;
+    for (let a = la0; a <= la1; a++) for (let o = lo0; o <= lo1; o++) {
+      const k = `${a}_${((o % nLon) + nLon) % nLon}`;
+      if (idx.tiles[k] && !tilesDone.has(k)) keys.push(k);
+    }
+    if (!keys.length) return;
+    status("灯台を読み込み中…");
+    await Promise.all(keys.slice(0, 30).map(async k => {
+      const rows = await (await fetch(`data/lights/${k}.json`)).json();
+      rows.forEach((r, i) => addLight(`${k}:${i}`, r[0], r[1], { name: r[2], type: r[3], ch: r[4], per: r[5], col: r[6], seq: r[7], rng: r[8], h: r[9] }));
+      tilesDone.add(k);
+    }));
+  }
+  async function loadOverpass(b) {
+    if (loaded && loaded.contains(map.getBounds())) return;
+    status("灯台を読み込み中…（初回のデータ準備中のため時間がかかります）");
+    const bb = `${b.getSouth().toFixed(3)},${b.getWest().toFixed(3)},${b.getNorth().toFixed(3)},${b.getEast().toFixed(3)}`;
+    const q = `[out:json][timeout:25];(node["seamark:light:character"](${bb});node["seamark:light:1:character"](${bb});node["man_made"="lighthouse"](${bb}););out body 4000;`;
+    let d;
+    for (const ep of ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]) {
+      try {
+        const r = await fetch(ep, { method: "POST", body: "data=" + encodeURIComponent(q), headers: { "Content-Type": "application/x-www-form-urlencoded" } });
+        if (r.ok) { d = await r.json(); break; }
+      } catch {}
+    }
+    if (!d) throw new Error("overpass");
+    for (const el of d.elements || []) {
+      const tg = el.tags || {}, S = sectorTags(tg);
+      addLight(el.id, el.lat, el.lon, {
+        name: tg["seamark:name"] || tg["name:ja"] || tg.name, type: tg["seamark:type"] || (tg.man_made === "lighthouse" ? "light_major" : ""),
+        ch: S && S.ch, per: S && S.per, col: S ? S.col.join(";") : "", seq: S && S.seq, rng: S && S.rng, h: S && S.h
+      });
+    }
+    loaded = loaded ? (loaded.extend(b), loaded) : L.latLngBounds(b.getSouthWest(), b.getNorthEast());
+  }
   function status(t) { $("#lt-status").textContent = t; }
 
   function info(Lt) {
@@ -192,7 +225,8 @@
     map.on("moveend", () => { clearTimeout(moveT); moveT = setTimeout(load, 700); });
     map.on("click", e => {
       const p = e.containerPoint; let best = null, bd = 24;
-      for (const Lt of lights.values()) { const q = map.latLngToContainerPoint(Lt.ll), d = Math.hypot(q.x - p.x, q.y - p.y); if (d < bd) { bd = d; best = Lt; } }
+      const zz = map.getZoom();
+      for (const Lt of lights.values()) { if (Lt.minor && zz < 8) continue; const q = map.latLngToContainerPoint(Lt.ll), d = Math.hypot(q.x - p.x, q.y - p.y); if (d < bd) { bd = d; best = Lt; } }
       sel = best; info(best);
     });
     $("#lt-spots").innerHTML = `<option value="" disabled selected>灯台の多い海域へ移動…</option>` + SPOTS.map(([n], i) => `<option value="${i}">${i ? n : "現在地の近く"}</option>`).join("");
