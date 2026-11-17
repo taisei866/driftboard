@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0c0e11">
+<meta name="theme-color" content="#07080a">
 <title>Driftboard</title>
 <meta name="description" content="自分の上空の飛行機、世界のラジオ、宇宙、星空、昼夜の世界地図を、ぼーっと眺めるためのダッシュボード">
 <link rel="manifest" href="manifest.webmanifest">
@@ -61,6 +61,7 @@
   </button>
   <div class="top-right">
     <span id="net" class="dot" title="通信状態"></span>
+    <button id="sleep-ind" class="sleep-ind" hidden title="スリープタイマー"><svg class="ic sm"><use href="#i-clock"/></svg><span class="mono"></span></button>
     <span id="hdr-clock" class="mono"></span>
     <button id="amb-btn" class="btn icon" aria-label="アンビエントモード" title="アンビエントモード"><svg class="ic"><use href="#i-moon"/></svg></button>
     <button id="fs" class="btn icon" aria-label="全画面" title="全画面"><svg class="ic"><use href="#i-expand"/></svg></button>
@@ -76,12 +77,12 @@
         <div class="fl-hud">
           <div id="fl-stats" class="hud-card">読み込み中…</div>
           <div class="hud-btns">
-            <button id="fl-home" class="btn"><svg class="ic"><use href="#i-locate"/></svg><span>現在地へ</span></button>
-            <button id="fl-voice" class="btn"><svg class="ic"><use href="#i-vol-off"/></svg><span>読み上げ</span></button>
+            <button id="fl-home" class="btn"><svg class="ic"><use href="#i-locate"/></svg><span>現在地へ戻る</span></button>
           </div>
         </div>
         <div id="fl-alert" class="alert" hidden></div>
-        <div class="legend"><span>低</span><i></i><span>高</span></div>
+        <div class="legend"><span>高度 低</span><i></i><span>高</span></div>
+        <div class="map-hint">地図を動かすと、その周辺の飛行機を表示します</div>
       </div>
       <aside class="fl-side">
         <div id="fl-detail" class="panel" hidden></div>
@@ -112,14 +113,19 @@
             <button id="rd-next" class="btn icon" aria-label="別の局へ" title="別の局へ"><svg class="ic"><use href="#i-next"/></svg></button>
             <button id="rd-star" class="btn icon" aria-label="お気に入り" title="お気に入り"><svg class="ic"><use href="#i-fav"/></svg></button>
             <label class="vol"><svg class="ic"><use href="#i-vol"/></svg><input id="rd-vol" type="range" min="0" max="1" step="0.01" value="0.8" aria-label="音量"></label>
-            <select id="rd-auto" aria-label="自動切替">
-              <option value="0">自動切替なし</option>
-              <option value="3">3分ごとに次の局</option>
-              <option value="10">10分ごとに次の局</option>
-              <option value="30">30分ごとに次の局</option>
-            </select>
           </div>
-          <div id="rd-state" class="muted small"></div>
+          <div class="now-opts">
+            <label><span>自動切替</span>
+              <select id="rd-auto" aria-label="自動切替">
+                <option value="0">しない</option><option value="3">3分ごと</option><option value="10">10分ごと</option><option value="30">30分ごと</option>
+              </select></label>
+            <label><span>スリープ</span>
+              <select id="rd-sleep" aria-label="スリープタイマー">
+                <option value="0">オフ</option><option value="15">15分後に停止</option><option value="30">30分後に停止</option><option value="45">45分後に停止</option>
+                <option value="60">60分後に停止</option><option value="90">90分後に停止</option><option value="120">120分後に停止</option>
+              </select></label>
+          </div>
+          <div class="now-status"><span id="rd-state" class="muted small"></span><span id="rd-sleep-left" class="small sleep-left"></span></div>
         </div>
         <div class="panel rd-filter">
           <div class="seg" id="rd-modes">
@@ -171,7 +177,7 @@
       </div>
       <div class="panel card" id="sp-sun">
         <div class="panel-h"><span>今の太陽</span><small id="sun-label"></small></div>
-        <div class="sun-box"><img id="sun-a" alt=""><img id="sun-b" alt=""></div>
+        <div class="sun-box"><img id="sun-a" alt=""><img id="sun-b" alt=""><button class="cnav prev" aria-label="前の画像"><svg class="ic"><use href="#i-chev"/></svg></button><button class="cnav next" aria-label="次の画像"><svg class="ic"><use href="#i-chev"/></svg></button></div>
         <div class="dots" id="sun-dots"></div>
       </div>
       <div class="panel card wide" id="sp-moon">
@@ -188,7 +194,7 @@
       </div>
       <div class="panel card wide" id="sp-earth">
         <div class="panel-h"><span>今日の地球</span><small id="earth-date"></small></div>
-        <div class="earth-box"><img id="earth-a" alt=""><img id="earth-b" alt=""></div>
+        <div class="earth-box"><img id="earth-a" alt=""><img id="earth-b" alt=""><button class="cnav prev" aria-label="前の画像"><svg class="ic"><use href="#i-chev"/></svg></button><button class="cnav next" aria-label="次の画像"><svg class="ic"><use href="#i-chev"/></svg></button></div>
         <div id="earth-cap" class="muted small center"></div>
       </div>
     </div>

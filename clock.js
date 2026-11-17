@@ -91,19 +91,19 @@
     g.fillStyle = "#fff5c0"; g.beginPath(); g.arc(sx, sy, r * .45, 0, 7); g.fill();
 
     // 都市
-    const now = new Date(), fs = Math.max(10, Math.min(13, cw / 70));
+    const now = new Date(), fs = cw < 520 ? 9.5 : Math.max(10, Math.min(13, cw / 70));
     g.font = `500 ${fs}px "Zen Kaku Gothic New",system-ui,sans-serif`; g.textBaseline = "middle";
     const boxes = [];
     cities.forEach((c, i) => {
       const x = X(c.lon), y = Y(c.lat), on = i === sel;
       if (on) {
         const ph = (Date.now() % 1600) / 1600;
-        g.strokeStyle = `rgba(230,176,74,${1 - ph})`; g.lineWidth = 2;
+        g.strokeStyle = `rgba(79,156,240,${1 - ph})`; g.lineWidth = 2;
         g.beginPath(); g.arc(x, y, 6 + ph * 16, 0, 7); g.stroke();
       }
-      g.fillStyle = c.home ? "#e6b04a" : on ? "#ffffff" : "#8cb6d6";
+      g.fillStyle = c.home ? "#4f9cf0" : on ? "#ffffff" : "#9aa7b8";
       g.beginPath(); g.arc(x, y, c.home || on ? 4.5 : 3.2, 0, 7); g.fill();
-      const label = `${c.n} ${Fmt.hm(now, c.tz)}`, tw = g.measureText(label).width, bh = fs * 1.5;
+      const label = cw < 520 ? (c.home ? `${c.n} ${Fmt.hm(now, c.tz)}` : Fmt.hm(now, c.tz)) : `${c.n} ${Fmt.hm(now, c.tz)}`, tw = g.measureText(label).width, bh = fs * 1.5;
       const lx = x + tw + 14 > cw ? x - tw - 12 : x + 7;
       let ly = y;  // ラベル同士が重ならないよう上下にずらす
       for (const dy of [0, -bh, bh, -2 * bh, 2 * bh]) {
@@ -114,7 +114,7 @@
       if (ly !== y) { g.strokeStyle = "rgba(255,255,255,.35)"; g.lineWidth = 1; g.beginPath(); g.moveTo(x, y); g.lineTo(lx - 3, ly); g.stroke(); }
       g.fillStyle = "rgba(0,0,0,.6)"; g.beginPath();
       g.roundRect ? g.roundRect(lx - 3, ly - bh / 2, tw + 6, bh, 4) : g.rect(lx - 3, ly - bh / 2, tw + 6, bh); g.fill();
-      g.fillStyle = c.home ? "#f1cf8c" : "#ebe8e1"; g.fillText(label, lx, ly + .5);
+      g.fillStyle = c.home ? "#a9cdf7" : "#e8eaed"; g.fillText(label, lx, ly + .5);
     });
   }
 

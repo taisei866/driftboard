@@ -19,9 +19,8 @@
   const RINGS = [25, 50, 100, 200];
   const OVERHEAD_KM = 6;
 
-  let map, H, visible = false, pollT, sel = null, follow = false;
+  let map, H, visible = false, pollT, sel = null, follow = false, QC = null, areaChanged = false, moveT;
   const planes = new Map(), routesC = new Map(), photoC = new Map(), alerted = new Map();
-  let voice = Store.get("flVoice", false);
 
   const ground = d => d.alt_baro === "ground";
   const altFt = d => ground(d) ? 0 : (typeof d.alt_baro === "number" ? d.alt_baro : (d.alt_geom ?? null));
@@ -39,7 +38,10 @@
   const emerg = d => ["7500", "7600", "7700"].includes(d.squawk) || (d.emergency && d.emergency !== "none");
   const altTxt = d => ground(d) ? "地上" : altFt(d) == null ? "-" : `${Fmt.n(altFt(d) * 0.3048)}m`;
   const pos = p => p.cur || [p.d.lat, p.d.lon];
-  const distOf = p => { const [a, o] = pos(p); return Geo.dist(H.lat, H.lon, a, o); };
+  const away = () => QC && Geo.dist(QC.lat, QC.lon, H.lat, H.lon) > 30;
+  const ref = () => away() ? QC : H;   // 距離の基準：現在地付近なら現在地、よそを見ているなら地図の中心
+  const distOf = p => { const [a, o] = pos(p); const r = ref(); return Geo.dist(r.lat, r.lon, a, o); };
+  const homeDist = p => { const [a, o] = pos(p); return Geo.dist(H.lat, H.lon, a, o); };
   const route = p => { const r = routesC.get(csOf(p.d).toUpperCase()); return r || null; };
   const routeTxt = r => r ? r.codes.replace(/-/g, " → ") : "";
 
@@ -49,33 +51,43 @@
     L.control.zoom({ position: "bottomright" }).addTo(map);
     L.marker([H.lat, H.lon], { icon: L.divIcon({ className: "", html: '<div class="home-dot"></div>', iconSize: [14, 14], iconAnchor: [7, 7] }), interactive: false }).addTo(map);
     RINGS.forEach(km => {
-      L.circle([H.lat, H.lon], { radius: km * 1000, color: "#39d0ff", weight: 1, opacity: .28, dashArray: "4 6", fill: false, interactive: false }).addTo(map);
+      L.circle([H.lat, H.lon], { radius: km * 1000, color: "#4f9cf0", weight: 1, opacity: .3, dashArray: "4 6", fill: false, interactive: false }).addTo(map);
       L.marker(Geo.dest(H.lat, H.lon, 0, km), { icon: L.divIcon({ className: "ring-lbl", html: km + "km", iconSize: [40, 12], iconAnchor: [20, 14] }), interactive: false }).addTo(map);
     });
     map.on("click", () => select(null));
     map.on("dragstart", () => { follow = false; if (sel) renderDetail(); });
     map.on("zoomend", () => planes.forEach(style));
+    map.on("moveend", () => { clearTimeout(moveT); moveT = setTimeout(area, 700); });
+    QC = { lat: H.lat, lon: H.lon, nm: 160 };
     $("#fl-home").onclick = () => { follow = false; map.flyTo([H.lat, H.lon], 8); };
-    const vb = $("#fl-voice");
-    const vtxt = () => { vb.innerHTML = ic(voice ? "i-vol" : "i-vol-off") + `<span>読み上げ ${voice ? "ON" : "OFF"}</span>`; vb.classList.toggle("on", voice); };
-    vtxt();
-    vb.onclick = () => { voice = !voice; Store.set("flVoice", voice); vtxt(); toast(voice ? "真上を通過する機体を読み上げます" : "読み上げをオフにしました"); if (voice) Data.say("読み上げをオンにしました"); };
     $("#fl-list").onclick = e => { const r = e.target.closest("[data-k]"); if (r) { select(r.dataset.k); const p = planes.get(r.dataset.k); if (p) map.panTo(pos(p)); } };
     $("#fl-alert").onclick = e => { const k = e.currentTarget.dataset.k; if (k) { select(k); const p = planes.get(k); if (p) map.panTo(pos(p)); } };
     setInterval(tick, 1000);
     poll();
   }
 
+  /* 地図を動かしたら、表示範囲の飛行機を取り直す */
+  function area() {
+    const c = map.getCenter(), b = map.getBounds();
+    const nm = Math.max(30, Math.min(250, Math.round(Geo.dist(c.lat, c.lng, b.getNorth(), b.getEast()) / 1.852)));
+    const moved = Geo.dist(c.lat, c.lng, QC.lat, QC.lon);
+    if (moved < QC.nm * 1.852 * .15 && Math.abs(nm - QC.nm) / QC.nm < .3) return;
+    QC = { lat: +c.lat.toFixed(3), lon: +c.lng.toFixed(3), nm };
+    areaChanged = true; poll();
+  }
+
   async function poll() {
     clearTimeout(pollT);
+    const q = QC;
     try {
-      const data = await api("/api/flights");
+      const data = await api(`/api/flights?lat=${q.lat}&lon=${q.lon}&nm=${q.nm}`);
+      if (q !== QC) return;   // 途中で範囲が変わった
       update(data);
       $("#fl-src").textContent = `${Fmt.hms(new Date())} 更新 ・ ${data.src}`;
     } catch (e) {
       $("#fl-stats").innerHTML = `<span style="color:var(--bad)">飛行機データを取得できません</span><br><small class="muted">${Data.hasProxy ? "提供元が混み合っています。自動で再試行します" : "中継サーバーが未設定です（README参照）"}</small>`;
     } finally {
-      pollT = setTimeout(poll, visible ? 5000 : 15000);
+      if (q === QC) pollT = setTimeout(poll, visible ? 5000 : 15000);
     }
   }
 
@@ -100,7 +112,8 @@
       p.line.setLatLngs(t);
       style(p);
     }
-    for (const [k, p] of planes) if (now - p.last > 60) {
+    const stale = areaChanged; areaChanged = false;
+    for (const [k, p] of planes) if (now - p.last > 60 || (stale && p.last !== now)) {
       map.removeLayer(p.marker); map.removeLayer(p.line); planes.delete(k);
       if (sel === k) select(null);
     }
@@ -157,7 +170,7 @@
       if (!hi || (altFt(p.d) || 0) > (altFt(hi.d) || 0)) hi = p;
     }
     $("#fl-stats").innerHTML =
-      `<b>${air.length}</b> 機が飛行中` +
+      `<span class="muted">${away() ? "地図の中心付近" : esc(H.name) + "付近"}</span><br><b>${air.length}</b> 機が飛行中` +
       (near ? `<br><span class="muted">最寄り</span> ${esc(csOf(near.p.d))} ・ ${Fmt.n(near.dd, 1)}km` : "") +
       (hi ? `<br><span class="muted">最高</span> ${esc(csOf(hi.d))} ・ ${altTxt(hi.d)}` : "");
   }
@@ -170,7 +183,7 @@
         <div><span class="sw" style="background:${color(p.d)}"></span><b>${esc(csOf(p.d))}</b>
           <div class="rt">${esc(routeTxt(r) || airline(p.d) || p.d.t || "")}</div></div>
         <div class="mono">${altTxt(p.d)}</div><div class="mono muted">${Fmt.n(dd, 0)}km</div></div>`;
-    }).join("") || `<div class="empty">半径約300km以内に、位置を送信している機体はありません。</div>`;
+    }).join("") || `<div class="empty">この範囲には、位置を送信している機体がありません。地図を動かすと、その周辺の飛行機を表示します。</div>`;
   }
 
   function select(k) {
@@ -190,7 +203,7 @@
     const p = planes.get(sel), box = $("#fl-detail");
     if (!p) { box.hidden = true; return; }
     const d = p.d, r = route(p), ph = photoC.get(sel) || {}, [la, lo] = pos(p);
-    const dd = Geo.dist(H.lat, H.lon, la, lo), brg = Geo.bearing(H.lat, H.lon, la, lo);
+    const R0 = ref(), dd = Geo.dist(R0.lat, R0.lon, la, lo), brg = Geo.bearing(R0.lat, R0.lon, la, lo);
     const vr = d.baro_rate ?? d.geom_rate;
     const aps = r && r.airports && r.airports.length >= 2 ? r.airports : null;
     const rt = aps
@@ -213,7 +226,7 @@
         <div><small>対地速度</small><b class="mono">${d.gs != null ? Fmt.n(d.gs * 1.852) + "km/h" : "-"}</b></div>
         <div><small>針路</small><b class="mono">${d.track != null ? Math.round(d.track) + "° " + Geo.dir16(d.track) : "-"}</b></div>
         <div><small>昇降</small><b class="mono">${vr == null ? "-" : (vr > 64 ? "↑" : vr < -64 ? "↓" : "→") + Fmt.n(Math.abs(vr * 0.3048)) + "m/分"}</b></div>
-        <div><small>ここから</small><b class="mono">${Fmt.n(dd, 1)}km</b></div>
+        <div><small>${away() ? "中心から" : "ここから"}</small><b class="mono">${Fmt.n(dd, 1)}km</b></div>
         <div><small>方角</small><b>${Geo.dir16(brg)}</b></div>
         <div><small>機体記号</small><b>${esc(d.r || "-")}</b></div>
         <div><small>スコーク</small><b class="mono" style="${emerg(d) ? "color:var(--bad)" : ""}">${esc(d.squawk || "-")}</b></div>
@@ -232,21 +245,12 @@
         showAlert(p, `緊急コード ${d.squawk}：${csOf(d)}`, `${altTxt(d)}・ここから${Fmt.n(distOf(p), 0)}km`, true);
       }
       if (ground(d)) continue;
-      const dd = distOf(p);
+      const dd = homeDist(p);
       if (dd <= OVERHEAD_KM && now - (alerted.get(p.hex) || 0) > 20 * 60000) {
         alerted.set(p.hex, now);
         const r = route(p), aps = r && r.airports && r.airports.length >= 2 ? r.airports : null;
         const sub = [aps ? `${aps[0].city || aps[0].iata}発 ${aps[aps.length - 1].city || aps[aps.length - 1].iata}行き` : airline(d), altTxt(d)].filter(Boolean).join("・");
         showAlert(p, `真上を通過中：${csOf(d)}`, sub);
-        if (voice) {
-          const c = (d.flight || "").trim(), al = airline(d);
-          const num = isFlightNo(c) ? c.slice(3) : "";
-          let t = "上空を";
-          t += al && num ? `${al}${num}便` : `${csOf(d)}`;
-          if (aps) t += `、${aps[0].city || aps[0].name}発、${aps[aps.length - 1].city || aps[aps.length - 1].name}行き`;
-          t += `が通過中です。高度およそ${Fmt.n(Math.round((altFt(d) || 0) * 0.3048 / 100) * 100)}メートル。`;
-          Data.say(t);
-        }
       }
     }
   }

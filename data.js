@@ -43,12 +43,14 @@ const Data = (() => {
 
   /* ---------- フライト ---------- */
   const AC_KEYS = ["hex", "flight", "r", "t", "desc", "ownOp", "lat", "lon", "alt_baro", "alt_geom", "gs", "track", "baro_rate", "geom_rate", "squawk", "category", "seen", "seen_pos", "emergency"];
-  function flights() {
-    const { lat, lon } = H();
-    return cached("flights", 4, () => first([
-      ["api.adsb.lol", `https://api.adsb.lol/v2/point/${lat}/${lon}/${FLIGHT_NM}`],
-      ["airplanes.live", `https://api.airplanes.live/v2/point/${lat}/${lon}/${FLIGHT_NM}`],
-      ["adsb.fi", `https://opendata.adsb.fi/api/v2/lat/${lat}/lon/${lon}/dist/${FLIGHT_NM}`]
+  function flights(qs) {
+    const lat = +(qs.get("lat") || H().lat), lon = +(qs.get("lon") || H().lon);
+    const nm = Math.max(10, Math.min(250, +(qs.get("nm") || FLIGHT_NM)));
+    const FLIGHT_NM_ = nm;
+    return cached(`flights:${lat.toFixed(2)},${lon.toFixed(2)},${nm}`, 4, () => first([
+      ["api.adsb.lol", `https://api.adsb.lol/v2/point/${lat}/${lon}/${FLIGHT_NM_}`],
+      ["airplanes.live", `https://api.airplanes.live/v2/point/${lat}/${lon}/${FLIGHT_NM_}`],
+      ["adsb.fi", `https://opendata.adsb.fi/api/v2/lat/${lat}/lon/${lon}/dist/${FLIGHT_NM_}`]
     ].map(([src, u]) => async () => {
       const d = await j(u, {}, 12000);
       const list = d.ac || d.aircraft || [];
@@ -212,7 +214,7 @@ const Data = (() => {
     const [p, q = ""] = path.split("?"), qs = new URLSearchParams(q);
     switch (p) {
       case "/api/config": return { home: H(), radius_nm: FLIGHT_NM };
-      case "/api/flights": return flights();
+      case "/api/flights": return flights(qs);
       case "/api/routes": return routes(opt);
       case "/api/photo": return photo(qs.get("hex"));
       case "/api/radio/countries": return cached("rbc", 86400, () => rb("countries?order=stationcount&reverse=true"));

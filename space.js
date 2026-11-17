@@ -14,9 +14,12 @@
     map = darkMap("issmap", { minZoom: 1, maxZoom: 6 }).setView([20, H.lon], 1);
     L.marker([H.lat, H.lon], { icon: L.divIcon({ className: "", html: '<div class="home-dot"></div>', iconSize: [14, 14], iconAnchor: [7, 7] }), interactive: false }).addTo(map);
     issM = L.marker([0, 0], { icon: L.divIcon({ className: "", html: '<div class="iss-ic"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }) }).addTo(map);
-    foot = L.circle([0, 0], { radius: 1, color: "#e6b04a", weight: 1, opacity: .5, fillOpacity: .06, interactive: false }).addTo(map);
-    $("#sun-dots").innerHTML = SUN_IMGS.map(() => "<i></i>").join("");
-    rotateSun();
+    foot = L.circle([0, 0], { radius: 1, color: "#4f9cf0", weight: 1, opacity: .5, fillOpacity: .06, interactive: false }).addTo(map);
+    $("#sun-dots").innerHTML = SUN_IMGS.map((_, k) => `<button data-k="${k}" aria-label="${k + 1}枚目"><i></i></button>`).join("");
+    $("#sun-dots").onclick = e => { const b = e.target.closest("[data-k]"); if (b) { sunHold = Date.now() + 30000; showSun(+b.dataset.k); } };
+    swipe($(".sun-box"), d => { sunHold = Date.now() + 30000; showSun(sunI + d); });
+    swipe($(".earth-box"), d => { eHold = Date.now() + 30000; showEarth(eI + d); });
+    showSun(0);
     setInterval(rotateSun, 9000);
     loadTle();
     setInterval(loadTle, 6 * 3600 * 1000);
@@ -91,7 +94,7 @@
     };
     const segs = [split(-50, 0), split(0, 95)];
     segs[0].forEach(s => trackL.push(L.polyline(s, { color: "#959aa3", weight: 1.2, opacity: .45, dashArray: "3 5", interactive: false }).addTo(map)));
-    segs[1].forEach(s => trackL.push(L.polyline(s, { color: "#e6b04a", weight: 1.8, opacity: .85, interactive: false }).addTo(map)));
+    segs[1].forEach(s => trackL.push(L.polyline(s, { color: "#4f9cf0", weight: 1.8, opacity: .85, interactive: false }).addTo(map)));
   }
 
   let tickN = 0;
@@ -162,39 +165,42 @@
     tick();
   }
 
-  function rotateSun() {
-    const imgs = [$("#sun-a"), $("#sun-b")], [u, l] = SUN_IMGS[sunI % SUN_IMGS.length];
-    const nxt = imgs.find(i => !i.classList.contains("on")) || imgs[0], curI = imgs.find(i => i !== nxt);
-    const stamp = Math.floor(Date.now() / 1800000);
-    nxt.onload = () => { nxt.classList.add("on"); curI.classList.remove("on"); $("#sun-label").textContent = l; };
-    nxt.onerror = () => { sunI++; };
-    nxt.src = `${u}?t=${stamp}`;
-    $$("#sun-dots i").forEach((d, i) => d.classList.toggle("on", i === sunI % SUN_IMGS.length));
-    sunI++;
+  /* 太陽画像：自動で切り替え。スワイプ・タップ・ドットで手動操作（操作後30秒は自動を止める） */
+  let sunHold = 0;
+  function showSun(i) {
+    const N = SUN_IMGS.length; sunI = ((i % N) + N) % N;
+    const imgs = [$("#sun-a"), $("#sun-b")], [u, l] = SUN_IMGS[sunI], my = sunI;
+    const nxt = imgs.find(x => !x.classList.contains("on")) || imgs[0], cur = imgs.find(x => x !== nxt);
+    nxt.onload = () => { if (my !== sunI) return; nxt.classList.add("on"); cur.classList.remove("on"); };
+    nxt.src = `${u}?t=${Math.floor(Date.now() / 1800000)}`;
+    $("#sun-label").textContent = l;
+    $$("#sun-dots i").forEach((d, k) => d.classList.toggle("on", k === sunI));
   }
+  const rotateSun = () => { if (Date.now() > sunHold) showSun(sunI + 1); };
 
   /* ---------- 今日の地球（DSCOVR / EPIC） ---------- */
-  let eList = [], eI = 0, eT, eKey = "";
+  let eList = [], eI = 0, eT, eKey = "", eHold = 0;
   function earth(list) {
     const key = list.map(e => e.url).join();
     if (!list.length) { $("#earth-cap").textContent = "今日の地球の画像を取得できませんでした"; return; }
     if (key === eKey) return;
-    eKey = key; eList = list; eI = 0;
+    eKey = key; eList = list;
     const d = new Date(list[0].date.replace(" ", "T") + "Z");
-    $("#earth-date").textContent = `${Fmt.md(d)}撮影`;
+    $("#earth-date").textContent = `${Fmt.md(d)}撮影 ・ ${list.length}枚`;
     list.forEach(e => { const im = new Image(); im.src = e.url; }); // 先読み
-    clearInterval(eT); showEarth(); eT = setInterval(showEarth, 3500);
+    showEarth(0);
+    clearInterval(eT); eT = setInterval(() => { if (visible && Date.now() > eHold) showEarth(eI + 1); }, 3500);
   }
-  function showEarth() {
-    if (!visible && eI) return;
-    const e = eList[eI % eList.length], imgs = [$("#earth-a"), $("#earth-b")];
-    const nxt = imgs.find(i => !i.classList.contains("on")) || imgs[0], cur = imgs.find(i => i !== nxt);
-    nxt.onload = () => { nxt.classList.add("on"); cur.classList.remove("on"); };
+  function showEarth(i) {
+    if (!eList.length) return;
+    const N = eList.length; eI = ((i % N) + N) % N;
+    const e = eList[eI], my = eI, imgs = [$("#earth-a"), $("#earth-b")];
+    const nxt = imgs.find(x => !x.classList.contains("on")) || imgs[0], cur = imgs.find(x => x !== nxt);
+    nxt.onload = () => { if (my !== eI) return; nxt.classList.add("on"); cur.classList.remove("on"); };
     nxt.src = e.url;
     const d = new Date(e.date.replace(" ", "T") + "Z"), la = e.lat, lo = e.lon;
-    $("#earth-cap").innerHTML = `${Fmt.md(d)} ${Fmt.hm(d)}・ 中心 ${la == null ? "" : `${la >= 0 ? "北緯" : "南緯"}${Math.abs(la).toFixed(0)}° ${lo >= 0 ? "東経" : "西経"}${Math.abs(lo).toFixed(0)}°`}
-      <span class="mono">（${eI % eList.length + 1}/${eList.length}）</span><br>NASA DSCOVR衛星のEPICカメラが約150万km先から撮影した地球です`;
-    eI++;
+    $("#earth-cap").innerHTML = `<span class="mono">${eI + 1} / ${N}</span> ・ ${Fmt.md(d)} ${Fmt.hm(d)}撮影 ・ 中心 ${la == null ? "" : `${la >= 0 ? "北緯" : "南緯"}${Math.abs(la).toFixed(0)}° ${lo >= 0 ? "東経" : "西経"}${Math.abs(lo).toFixed(0)}°`}
+      <br>NASAの衛星DSCOVRが、約150万km先から撮影した地球です。左右にスワイプで1枚ずつ見られます。`;
   }
 
   /* ---------- 月 ---------- */

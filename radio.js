@@ -50,6 +50,17 @@
     });
     setInterval(() => { if (auto && playing && Date.now() - startedAt > auto * 60000) next(); }, 5000);
 
+    /* スリープタイマー：指定時間後に音量をゆっくり下げて停止 */
+    const sl = $("#rd-sleep");
+    sl.onchange = () => {
+      const m = +sl.value; sleepAt = m ? Date.now() + m * 60000 : 0;
+      fading = false; aV.volume = aD.volume = vol;
+      if (m && !playing) toast(`${m}分後に停止します（再生を始めてください）`); else toast(m ? `${m}分後にラジオを止めます` : "スリープタイマーを解除しました");
+      sleepTick();
+    };
+    $("#sleep-ind").onclick = () => App.show("radio");
+    setInterval(sleepTick, 1000);
+
     countries();
     syncUI(); renderNow(); load();
     requestAnimationFrame(draw);
@@ -193,6 +204,25 @@
 
   function stop() { token++; clearTimeout(watchdog); silence(); playing = false; renderNow(); }
 
+  let sleepAt = 0, fading = false;
+  function sleepTick() {
+    const ind = $("#sleep-ind"), left = sleepAt - Date.now();
+    ind.hidden = !sleepAt;
+    if (!sleepAt) { $("#rd-sleep-left").textContent = ""; return; }
+    const t = Math.max(0, Math.ceil(left / 1000)), mm = Math.floor(t / 60), ss = String(t % 60).padStart(2, "0");
+    $("#sleep-ind span").textContent = `${mm}:${ss}`;
+    $("#rd-sleep-left").textContent = `あと ${mm}:${ss} で停止`;
+    if (left <= 20000 && left > 0 && playing && !fading) {   // 最後の20秒でフェードアウト
+      fading = true; const v0 = vol, t0 = Date.now();
+      const f = setInterval(() => { const k = Math.max(0, 1 - (Date.now() - t0) / 20000); aV.volume = aD.volume = v0 * k; if (!k || !sleepAt) clearInterval(f); }, 200);
+    }
+    if (left <= 0) {
+      sleepAt = 0; fading = false; $("#rd-sleep").value = "0";
+      if (playing) { stop(); toast("スリープタイマー：ラジオを停止しました"); }
+      aV.volume = aD.volume = vol; sleepTick();
+    }
+  }
+
   async function next() {
     let pool = list.filter(s => !cur || s.stationuuid !== cur.stationuuid);
     if (!pool.length && mode === "world") { await load(); pool = list; }
@@ -212,7 +242,7 @@
     if (live) analyser.getByteFrequencyData(freq);
     const n = bars.length, bw = w / n;
     const grad = g.createLinearGradient(0, h, 0, 0);
-    grad.addColorStop(0, "rgba(230,176,74,.55)"); grad.addColorStop(1, "#e6b04a");
+    grad.addColorStop(0, "rgba(230,176,74,.55)"); grad.addColorStop(1, "#4f9cf0");
     g.fillStyle = grad;
     for (let i = 0; i < n; i++) {
       const bin = Math.min(freq ? freq.length - 1 : 0, Math.floor(Math.pow(i / n, 1.6) * 100) + 1);

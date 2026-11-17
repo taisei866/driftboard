@@ -14,6 +14,7 @@ const Amb = (() => {
     setInterval(() => { if (cfg.auto && !on && cfg.tabs.length && Date.now() - last > cfg.idle * 60000) start(); }, 5000);
 
     $("#amb-btn").onclick = e => { e.stopPropagation(); const p = $("#amb-panel"); p.hidden = !p.hidden; if (!p.hidden) render(); };
+    $("#amb-panel").addEventListener("click", e => e.stopPropagation());   // パネル内の操作では閉じない
     document.addEventListener("click", e => { const p = $("#amb-panel"); if (!p.hidden && !p.contains(e.target) && e.target !== $("#amb-btn")) p.hidden = true; });
   }
 
@@ -21,7 +22,7 @@ const Amb = (() => {
     const p = $("#amb-panel");
     const sel = (id, opts, v) => `<select id="${id}">${opts.map(([val, l]) => `<option value="${val}" ${+val === +v ? "selected" : ""}>${l}</option>`).join("")}</select>`;
     p.innerHTML = `
-      <div class="modal-h" style="font-size:15px"><span>アンビエントモード</span></div>
+      <div class="modal-h" style="font-size:15px"><span>アンビエントモード</span><button class="btn icon sm" id="amb-x" aria-label="閉じる">${ic("i-x", "sm")}</button></div>
       <p class="muted small lead" style="margin-bottom:10px">しばらく触らないと、上下のバーを隠して各タブをゆっくり巡回します。</p>
       <button class="btn primary wide" id="amb-go">${ic("i-moon")}<span>今すぐ開始</span></button>
       <label class="amb-row"><span>無操作で自動開始</span><button class="chip ${cfg.auto ? "on" : ""}" id="amb-auto">${cfg.auto ? "ON" : "OFF"}</button></label>
@@ -32,6 +33,7 @@ const Amb = (() => {
       <div class="chips small" id="amb-tabs">${TABS.map(([k, l]) => `<button class="chip ${cfg.tabs.includes(k) ? "on" : ""}" data-k="${k}">${l}</button>`).join("")}</div>
       <div class="small muted" style="margin-top:10px">画面に触れると元に戻ります。ラジオは流れたままです。</div>`;
     $("#amb-go").onclick = () => { p.hidden = true; setTimeout(start, 300); };
+    $("#amb-x").onclick = () => { p.hidden = true; };
     $("#amb-auto").onclick = () => { cfg.auto = !cfg.auto; save(); render(); };
     $("#amb-dim").onclick = () => { cfg.dim = !cfg.dim; save(); render(); };
     $("#amb-idle").onchange = e => { cfg.idle = +e.target.value; save(); };

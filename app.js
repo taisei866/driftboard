@@ -3,6 +3,18 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const D2R = Math.PI / 180, R2D = 180 / Math.PI;
+/* 左右スワイプ（またはボタン）で前後に送る。d = +1 次 / -1 前 */
+function swipe(el, cb) {
+  let x0 = null, y0 = 0;
+  el.style.touchAction = "pan-y";
+  el.addEventListener("pointerdown", e => { if (e.target.closest(".cnav")) return; x0 = e.clientX; y0 = e.clientY; });
+  el.addEventListener("pointerup", e => {
+    if (x0 == null) return;
+    const dx = e.clientX - x0, dy = e.clientY - y0; x0 = null;
+    if (Math.abs(dx) > 35 && Math.abs(dx) > Math.abs(dy)) cb(dx < 0 ? 1 : -1);
+  });
+  el.querySelectorAll(".cnav").forEach(b => b.onclick = () => cb(b.classList.contains("prev") ? -1 : 1));
+}
 const ic = (id, cls = "") => `<svg class="ic ${cls}"><use href="#${id}"/></svg>`;
 
 const Store = {
