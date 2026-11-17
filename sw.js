@@ -1,5 +1,5 @@
 /* Driftboard service worker: 自分のファイルはキャッシュして高速起動（裏で更新） */
-const CACHE = "driftboard-v7";
+const CACHE = "driftboard-v8";
 const CORE = ["./", "index.html", "config.js", "style.css", "app.js", "data.js", "setup.js", "flights.js", "weather.js", "radio.js", "space.js", "sky.js", "clock.js", "wind.js", "lights.js",
   "ambient.js", "lib/leaflet.js", "lib/leaflet.css", "lib/satellite.min.js", "lib/astronomy.browser.min.js",
   "data/sky.json", "img/day.jpg", "img/night.jpg", "icons/icon-192.png"];
@@ -10,9 +10,9 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   const u = new URL(e.request.url);
   if (e.request.method !== "GET" || u.origin !== location.origin) return;   // 外部APIは常にネットから
-  e.respondWith(caches.open(CACHE).then(async c => {
-    const hit = await c.match(e.request);
-    const net = fetch(e.request).then(r => { if (r.ok) c.put(e.request, r.clone()); return r; }).catch(() => hit);
-    return hit || net;
-  }));
+  // 自分のファイルは「まずネット、だめならキャッシュ」：更新がすぐ反映され、オフラインでも開ける
+  e.respondWith(fetch(e.request).then(r => {
+    if (r.ok) { const cp = r.clone(); caches.open(CACHE).then(c => c.put(e.request, cp)); }
+    return r;
+  }).catch(() => caches.match(e.request)));
 });
