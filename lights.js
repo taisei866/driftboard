@@ -120,10 +120,12 @@
       const p = map.latLngToContainerPoint(Lt.ll);
       if (p.x < -60 || p.y < -60 || p.x > W + 60 || p.y > H + 60) continue;
       const [lv, ci] = level(Lt, t), rgb = COL[Lt.col[ci]] || COL.white;
-      const base = Math.max(3, Math.min(16, 2.5 + (Lt.rng || 3) * .55)) * Math.max(.55, Math.min(1.8, (z - 5) / 5)) * (Lt.minor ? .7 : 1);
+      // 引きの画角では光を小さく・やや控えめにして、密集した海域が白く飽和しないようにする
+      const zf = z < 6 ? .22 + (z - 3) * .1 : Math.max(.55, Math.min(1.8, (z - 5) / 5));
+      const base = Math.max(3, Math.min(16, 2.5 + (Lt.rng || 3) * .55)) * zf * (Lt.minor ? .7 : 1);
       if (lv > .01) {
         const r = base * (2.4 + lv * 1.6);
-        g.globalAlpha = lv; g.drawImage(sprite(rgb), p.x - r, p.y - r, r * 2, r * 2);
+        g.globalAlpha = z < 6 ? lv * .85 : lv; g.drawImage(sprite(rgb), p.x - r, p.y - r, r * 2, r * 2);
       }
       g.globalAlpha = .28; g.fillStyle = `rgb(${rgb})`; g.fillRect(p.x - .9, p.y - .9, 1.8, 1.8);
     }
@@ -161,16 +163,26 @@
   }
   async function load() {
     const z = map.getZoom(), b = map.getBounds().pad(.1);
-    if (z < 6) { status("拡大すると、その海域の灯台を表示します"); return; }
     if (busy) return; busy = true;
     try {
       const idx = await getIndex();
+      if (idx) await loadOverview();   // 世界中の大きな灯台は最初にまとめて読む（引きの画角用）
+      if (z < 6) { if (!idx) status("拡大すると、その海域の灯台を表示します"); else status(statusText()), fCount(); return; }
       if (idx) await loadTiles(idx, b); else await loadOverpass(b);
       status(statusText()); fCount();
       if (!lights.size) toast("この範囲には灯台が見つかりませんでした。海沿いへ移動してみてください");
     } catch {
       status("灯台データを取得できませんでした。少し待ってから地図を動かしてください");
     } finally { busy = false; }
+  }
+  let overview = false;
+  async function loadOverview() {
+    if (overview) return; overview = true;
+    try {
+      status("世界の灯台を読み込み中…");
+      const rows = await (await fetch("data/lights/overview.json")).json();
+      for (const r of rows) addLight(r[0], r[1], r[2], { name: r[3], type: r[4], ch: r[5], per: r[6], col: r[7], seq: r[8], rng: r[9], h: r[10] });
+    } catch { overview = false; }
   }
   async function loadTiles(idx, b) {
     const st = idx.step, keys = [];

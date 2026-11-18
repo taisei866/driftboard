@@ -90,6 +90,17 @@ def build_tiles():
     return tiles
 
 
+def big(r):
+    """引きの画角でも表示する灯り：大きな灯台・灯船・目印になる灯り、または光達距離8海里以上"""
+    return (len(r) > 3 and r[3] in ("light_major", "light_vessel", "landmark")) or \
+        (len(r) > 8 and isinstance(r[8], (int, float)) and r[8] >= 8)
+
+
+def overview(tiles):
+    """広域表示用の一覧。各行の先頭に区画ファイルと同じID（区画:番号）を付け、拡大時の重複を防ぐ"""
+    return [[f"{k}:{i}"] + r for k, rows in tiles.items() for i, r in enumerate(rows) if big(r)]
+
+
 def main():
     if not any(extract(u) for u in MIRRORS):
         log("どのミラーからも取得できませんでした。既存のデータはそのまま残します")
@@ -105,6 +116,8 @@ def main():
     for k, rows in tiles.items():
         json.dump(rows, open(os.path.join(new, k + ".json"), "w", encoding="utf-8"),
                   ensure_ascii=False, separators=(",", ":"))
+    json.dump(overview(tiles), open(os.path.join(new, "overview.json"), "w", encoding="utf-8"),
+              ensure_ascii=False, separators=(",", ":"))
     json.dump({"step": STEP, "built": time.strftime("%Y-%m-%d"), "total": total,
                "tiles": {k: len(v) for k, v in tiles.items()}},
               open(os.path.join(new, "index.json"), "w"), separators=(",", ":"))
