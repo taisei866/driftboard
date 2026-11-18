@@ -1122,8 +1122,7 @@ body.amb main::after{display:none}
 @keyframes nudge{50%{transform:translateX(-6px)}}
 .hn-sub{position:absolute;left:var(--edge);right:var(--edge);bottom:calc(var(--botbar) + 16px);text-align:center;font:300 11px/1.7 "Noto Sans JP",var(--sans);letter-spacing:.06em;color:var(--mut)}
 /* ---- 描き方の統一：写真は銀塩のような単色に、平面地図は地球儀に一本化 ---- */
-.sun-box img,.earth-box img,.fd-photo,.fav-wrap img,.st-row img{filter:grayscale(1) contrast(1.05) brightness(.9)}
-.night-map .dark-tiles{filter:invert(1) grayscale(1) brightness(.2) contrast(1.2)!important}
+.night-map .dark-tiles{filter:invert(1) grayscale(1) brightness(.32) contrast(1.15)!important}
 .dark-tiles{filter:invert(1) grayscale(1) brightness(.45) contrast(1.1)!important}
 #sky,#orrery{filter:none!important}
 .legend i{background:linear-gradient(90deg,#4a4a52,#e0e0e5)!important}
