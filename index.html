@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="design.css">
 <link rel="stylesheet" href="gallery.css">
+<link rel="stylesheet" href="touch.css">
 </head>
 <body>
 <!-- アイコン（線画） -->
@@ -374,8 +375,9 @@
 <script src="ambient.js"></script>
 <script src="instruments.js"></script>
 <script src="design.js"></script>
+<script src="touch.js"></script>
 <script>
-App.start(); Amb.init(); Inst.init(); Design.init();
+App.start(); Amb.init(); Inst.init(); Design.init(); Drift.init();
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
 </body>

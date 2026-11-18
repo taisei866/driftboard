@@ -174,9 +174,7 @@ const Design = (() => {
   function init() {
     frame();
     document.body.append(el("div", { id: "veil" }), el("div", { id: "tab-title" }));
-    masts(); bgInit(); cursor(); intro();
-    addEventListener("pointermove", spotlight, { passive: true });
-    addEventListener("pointerdown", e => { spotlight(e); ripple(e); }, { passive: true });
+    masts(); bgInit(); intro();   // マウス前提の演出（カーソル・追従光・波紋）は廃止。指先の反応は touch.js が担当
     addEventListener("resize", indicator);
     // App の画面切り替え・下部バー・「すべて」に演出を重ねる
     const show = App.show.bind(App), nav = App.nav.bind(App), launcher = App.launcher.bind(App);
