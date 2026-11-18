@@ -26,7 +26,7 @@ body>header,body>main,body>nav{position:relative;z-index:1}
 .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--dim)}
 
 /* ---- ガラスのパネルと、指先を追う光 ---- */
-.panel,.city,.obs-card,.hud-card{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,0) 40%),var(--s1);
+.panel,.city,.obs-card,.hud-card{background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,0) 40%),var(--s1);
   border:1px solid var(--line);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 10px 30px rgba(0,0,0,.25)}
 .spot{isolation:isolate}
@@ -179,3 +179,146 @@ select:focus,input[type=search]:focus{box-shadow:0 0 0 3px rgba(90,168,255,.15)}
   *,*::before,*::after{animation-duration:.01ms!important;animation-delay:0s!important;transition-duration:.01ms!important}
   .rv{opacity:1;transform:none}
 }
+
+/* =====================================================================
+   各タブのデザイン
+   ===================================================================== */
+
+/* ---- 見出し（スクロールする画面の頭に付く） ---- */
+.mast{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:end;gap:6px 18px;margin:6px 2px 18px;padding-bottom:14px;border-bottom:1px solid var(--line);max-width:1400px}
+.mast-no{grid-row:span 2;align-self:stretch;display:flex;align-items:flex-start;font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--acc);padding-top:8px}
+.mast h1{margin:0;font-family:var(--mono);font-weight:300;font-size:clamp(30px,5.4vw,56px);letter-spacing:-.02em;line-height:1;color:#fff}
+.mast h1 span{display:inline-block;opacity:0;transform:translateY(.4em);animation:up .9s var(--ease) forwards}
+.mast p{grid-column:2;margin:0;color:var(--mut);font-size:13px;letter-spacing:.04em}
+.mast-meta{grid-row:1/span 2;grid-column:3;text-align:right;font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--dim);line-height:1.8;white-space:nowrap}
+.mast-meta b{color:var(--tx);font-weight:400}
+@media (max-width:600px){ .mast{grid-template-columns:auto minmax(0,1fr);margin:4px 2px 12px} .mast-meta{display:none} .mast-no{padding-top:5px} }
+.tab.scroll>*{max-width:1400px;margin-left:auto;margin-right:auto}
+@media (min-width:900px){ .tab.scroll{padding:22px 28px 28px} }
+
+/* ---- 数値の小さな計器（共通） ---- */
+.wx-stats,.stats4,.stats3,.fd-grid{gap:0!important;border-top:1px solid var(--line);border-left:1px solid var(--line);border-radius:10px;overflow:hidden}
+.wx-stats div,.stats4 div,.stats3 div,.fd-grid div{background:none!important;border-radius:0!important;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:10px 12px!important;transition:background .3s}
+.wx-stats div:hover,.stats4 div:hover,.stats3 div:hover,.fd-grid div:hover{background:rgba(90,168,255,.06)!important}
+.wx-stats small,.stats4 small,.stats3 small,.fd-grid small{font-family:var(--mono);font-size:9.5px!important;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)!important;margin-bottom:3px}
+.wx-stats b,.stats4 b,.stats3 b,.fd-grid b{font-family:var(--mono);font-weight:400!important}
+
+/* ---- 天気 ---- */
+#tab-weather .wx-grid{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:14px}
+#tab-weather .wx-chartbox{grid-column:1/-1;order:3}
+.wx-hero{position:relative;gap:22px;padding:8px 0 6px}
+.wx-hero::before{content:"";position:absolute;left:-30px;top:-40px;width:220px;height:220px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,rgba(90,168,255,.16),transparent 65%);animation:breathe 7s ease-in-out infinite}
+@keyframes breathe{50%{transform:scale(1.12);opacity:.7}}
+.wx-big{width:84px;height:84px;stroke-width:1;filter:drop-shadow(0 0 14px rgba(90,168,255,.45));animation:float 6s ease-in-out infinite}
+@keyframes float{50%{transform:translateY(-5px)}}
+.wx-temp{font-size:clamp(64px,9vw,96px)!important;letter-spacing:-.06em!important;color:#fff}
+.wx-temp small{font-size:.28em!important;vertical-align:.95em;margin-left:4px!important}
+.wx-lb{font-size:17px;font-weight:500;letter-spacing:.08em}
+.wx-stats{grid-template-columns:repeat(4,1fr);margin-top:18px}
+.wx-day{grid-template-columns:72px 26px 44px 36px minmax(0,1fr) 36px;padding:11px 8px;border-radius:8px;transition:background .3s,transform .4s var(--ease)}
+.wx-day:hover{background:rgba(90,168,255,.06);transform:translateX(4px)}
+.wx-day:first-child .wx-d{color:var(--acc)}
+.wx-bar{height:3px;background:rgba(140,170,220,.12)}
+.wx-bar i{box-shadow:0 0 10px rgba(90,168,255,.5)}
+@media (max-width:900px){ #tab-weather .wx-grid{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:600px){ .wx-stats{grid-template-columns:repeat(2,1fr)} .wx-big{width:64px;height:64px} }
+
+/* ---- フライト：出発案内板のような一覧 ---- */
+.fl-wrap{gap:10px;padding:10px}
+.fl-mapbox{border-radius:var(--r);overflow:hidden;border:1px solid var(--line)}
+#fmap{border-radius:0}
+.fl-row{grid-template-columns:minmax(0,1fr) auto 58px;padding:11px 10px;border-radius:8px;border-bottom:1px solid var(--line);transition:background .3s,transform .4s var(--ease)}
+.fl-row:hover{background:rgba(90,168,255,.06);transform:translateX(3px)}
+.fl-row b{font-size:15px;letter-spacing:.12em}
+.fl-row .sw{width:6px;height:6px;border-radius:50%;box-shadow:0 0 8px currentColor;vertical-align:2px}
+.fl-row.sel{background:rgba(90,168,255,.12);box-shadow:inset 2px 0 0 var(--acc)}
+.fd-cs{font-size:28px;font-weight:300;letter-spacing:.08em}
+.fd-route b{font-size:24px;font-weight:300;letter-spacing:.06em}
+.fd-route .arrow{height:1px;background:linear-gradient(90deg,var(--line2),var(--acc),var(--line2));overflow:visible}
+.fd-route .arrow::before{content:"";position:absolute;top:-2.5px;width:6px;height:6px;border-radius:50%;background:var(--acc2);box-shadow:0 0 8px var(--acc);animation:fly 3s var(--ease2) infinite}
+@keyframes fly{from{left:0;opacity:0}20%{opacity:1}80%{opacity:1}to{left:calc(100% - 6px);opacity:0}}
+.fd-photo{border-radius:10px;border:1px solid var(--line)}
+#fl-stats b{font-size:26px;font-weight:300}
+.alert{background:rgba(14,20,32,.92);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);box-shadow:0 0 30px rgba(90,168,255,.25)}
+
+/* ---- ラジオ：放送中の盤面 ---- */
+.rd-wrap{gap:10px;padding:10px}
+.rd-right{border-radius:var(--r);overflow:hidden;border:1px solid var(--line)}
+#rmap{border-radius:0}
+.panel.now{background:radial-gradient(120% 90% at 0% 0%,rgba(90,168,255,.10),transparent 55%),var(--s1)}
+.now-name{font-size:clamp(20px,2.6vw,28px);font-weight:500;letter-spacing:.01em}
+.fav-wrap{width:72px;height:72px;border-radius:50%;border:1px solid var(--line2);box-shadow:0 0 0 6px rgba(90,168,255,.05)}
+.fav-wrap img{border-radius:50%}
+#rd-viz{height:70px;margin:14px 0;filter:drop-shadow(0 0 8px rgba(90,168,255,.45))}
+.btn.play{width:56px;height:56px}
+.btn.play:has(use[href="#i-stop"]){animation:onair 2.4s ease-out infinite}
+@keyframes onair{0%{box-shadow:0 0 0 0 rgba(90,168,255,.45),0 8px 26px rgba(63,143,240,.35)}100%{box-shadow:0 0 0 18px rgba(90,168,255,0),0 8px 26px rgba(63,143,240,.35)}}
+.st-row{padding:9px 8px;border-radius:8px;transition:background .3s,transform .4s var(--ease)}
+.st-row:hover{background:rgba(90,168,255,.06);transform:translateX(3px)}
+.st-row.on{background:rgba(90,168,255,.12);box-shadow:inset 2px 0 0 var(--acc)}
+.st-row img,.st-row .ph{border-radius:50%}
+.tags span{font-family:var(--mono);font-size:10px;letter-spacing:.06em;background:none;border:1px solid var(--line2);border-radius:999px}
+
+/* ---- 宇宙 ---- */
+.sp-grid{gap:14px}
+#issmap{border-radius:10px;border:1px solid var(--line)}
+.kp-big{font-size:68px!important;color:#fff}
+.bars{gap:3px;border-bottom-color:var(--line)}
+.bars div{border-radius:2px 2px 0 0;transition:filter .3s}
+.bars div:hover{filter:brightness(1.4)}
+.sun-box{box-shadow:0 0 0 1px var(--line),0 0 80px rgba(255,150,60,.18);outline:1px dashed rgba(140,170,220,.15);outline-offset:14px}
+.earth-box{box-shadow:0 0 0 1px var(--line),0 0 90px rgba(90,168,255,.22);outline:1px dashed rgba(140,170,220,.15);outline-offset:18px}
+#moon{filter:drop-shadow(0 0 24px rgba(220,230,255,.2))}
+.moon-name{font-size:24px;font-weight:500}
+.callout{background:rgba(90,168,255,.07);border-left:2px solid var(--acc)}
+.note{background:rgba(255,255,255,.025);border-left:2px solid var(--line2)}
+
+/* ---- 星空 ---- */
+.sk-wrap{gap:10px;padding:10px}
+.sk-main{border-color:var(--line);background:radial-gradient(circle at 50% 50%,#0a1224,#03050a 70%)}
+.sk-name{font-size:24px;font-weight:500}
+.sk-pl{padding:10px 4px;border-radius:8px;transition:background .3s}
+.sk-pl:hover{background:rgba(90,168,255,.06)}
+.sk-pl .sw{box-shadow:0 0 8px currentColor}
+
+/* ---- 世界時計 ---- */
+.ck-head{align-items:flex-end;margin-bottom:16px}
+.ck-time{font-size:clamp(52px,9vw,104px)!important;color:#fff}
+.ck-mapbox{border-color:var(--line);box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.ck-grid{gap:10px;margin-top:14px}
+.city{padding:14px 14px 12px;transition:transform .5s var(--ease),border-color .3s}
+.city:hover{transform:translateY(-3px)}
+.city.day{background:linear-gradient(160deg,rgba(90,168,255,.10),transparent 60%),var(--s1)}
+.city.night{background:linear-gradient(160deg,rgba(40,50,90,.18),transparent 60%),var(--s1)}
+.city .tm{font-size:32px;letter-spacing:-.03em}
+
+/* ---- 天文台 ---- */
+.obs-mapbox{border-color:var(--line);box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.obs-hero b{font-size:26px;font-weight:500}
+.obs-card{transition:transform .5s var(--ease),border-color .3s}
+.obs-card:hover{transform:translateY(-3px)}
+.obs-bars{height:12px;border-radius:999px;gap:0}
+
+/* ---- 風の絵・灯台の説明札 ---- */
+.art-info,.lt-info,.lt-tour{border:1px solid var(--line2)}
+.art-info{background:rgba(4,6,10,.55);border-radius:12px;padding:12px 16px}
+.tour-name{font-size:24px;font-weight:500}
+
+/* =====================================================================
+   アンビエントモード：重なりの整理
+   時計は左上、説明札は下、それ以外の浮き部品は隠す
+   ===================================================================== */
+body.amb #tab-title,body.amb #toast,body.amb #veil,body.amb .legend,body.amb .map-hint,body.amb .fl-hud,body.amb #fl-alert,body.amb #fl-filter,
+body.amb .lt-top,body.amb #lt-info,body.amb #lt-filter,body.amb .obs-legend,body.amb .obs-pop,body.amb .sk-top,body.amb .sk-bottom,
+body.amb .leaflet-control-zoom,body.amb .leaflet-control-attribution,body.amb #amb-panel,body.amb #cur{display:none!important}
+#amb-clock{transition:left 3s,top 3s}
+#amb-clock div{font-weight:300;font-size:clamp(40px,7vw,72px);letter-spacing:-.04em;color:#fff}
+#amb-clock small{font-family:var(--mono);letter-spacing:.12em}
+body.amb .lt-tour{bottom:calc(16px + env(safe-area-inset-bottom));left:50%;right:auto;transform:translateX(-50%);width:min(520px,calc(100% - 32px))}
+body.amb .art-info{left:auto;right:16px;bottom:16px;max-width:min(420px,calc(100% - 32px))}
+body.amb .mast{display:none}
+body.amb .tab.scroll{padding-top:clamp(96px,16vh,150px)}
+body.amb[data-tab=clock] #amb-clock{display:none}
+body.amb[data-tab=clock] .tab.scroll{padding-top:16px}
+@media (orientation:portrait){ #amb-clock div{font-size:44px} }

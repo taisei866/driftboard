@@ -47,7 +47,7 @@ const Amb = (() => {
 
   function start() {
     if (on || !cfg.tabs.length) return;
-    on = true; $("#amb-panel").hidden = true;
+    on = true; ["#amb-panel", "#launcher", "#fl-filter", "#lt-filter"].forEach(q => { const e = $(q); if (e) e.hidden = true; });
     document.body.classList.add("amb"); relayout();
     idx = Math.max(0, cfg.tabs.indexOf(App.cur));
     if (!cfg.tabs.includes(App.cur)) go(cfg.tabs[0]); else enter();
@@ -94,7 +94,7 @@ const Amb = (() => {
     const now = new Date(), c = $("#amb-clock");
     c.innerHTML = `<div>${Fmt.hm(now)}</div><small>${Fmt.md(now)} ・ ${esc(App.home.name)}</small>`;
     if (now.getSeconds() === 0 || !c.style.left) {   // 焼き付き防止で毎分少しずつ移動
-      c.style.left = (4 + Math.random() * 10) + "%"; c.style.bottom = (3 + Math.random() * 6) + "%";
+      c.style.left = (3 + Math.random() * 8) + "%"; c.style.top = (3 + Math.random() * 6) + "%"; c.style.bottom = "auto";
     }
     const night = Sun.elev(App.home.lat, App.home.lon) < -6;
     $("#dim").style.opacity = cfg.dim && night ? .42 : 0;

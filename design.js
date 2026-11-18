@@ -84,6 +84,7 @@ const Design = (() => {
   }
   function transition(name) {
     const tab = $("#tab-" + name); if (!tab) return;
+    document.body.dataset.tab = name;
     if (!RM) {
       tab.classList.remove("enter"); void tab.offsetWidth; tab.classList.add("enter");
       setTimeout(() => tab.classList.remove("enter"), 800);
@@ -92,6 +93,7 @@ const Design = (() => {
       t.textContent = `${String(i + 1).padStart(2, "0")} — ${EN[name] || name}`;
       t.classList.remove("go"); void t.offsetWidth; t.classList.add("go");
     }
+    replayMast(tab);
     setTimeout(() => reveal(tab), 30);
     bgState(); indicator();
   }
@@ -110,7 +112,7 @@ const Design = (() => {
   let hot = null;
   function spotlight(e) {
     const t = e.target.closest?.(SPOT);
-    if (t !== hot) { hot?.classList.remove("hot"); hot = t; t?.classList.add("spot", "hot"); }
+    if (t !== hot) { hot?.classList.remove("hot"); hot = t; if (t) { if (getComputedStyle(t).position === "static") t.style.position = "relative"; t.classList.add("spot", "hot"); } }
     if (!t) return;
     const r = t.getBoundingClientRect();
     t.style.setProperty("--mx", (e.clientX - r.left) + "px"); t.style.setProperty("--my", (e.clientY - r.top) + "px");
@@ -142,9 +144,27 @@ const Design = (() => {
     tick(); setInterval(tick, 1000);
   }
 
+  /* ---------- スクロールする画面の見出し ---------- */
+  function masts() {
+    const H = App.home, co = `${Math.abs(H.lat).toFixed(2)}°${H.lat >= 0 ? "N" : "S"} ${Math.abs(H.lon).toFixed(2)}°${H.lon >= 0 ? "E" : "W"}`;
+    App.views.forEach((v, i) => {
+      const tab = $("#tab-" + v.id);
+      if (!tab || !tab.classList.contains("scroll") || tab.querySelector(".mast")) return;
+      const title = (EN[v.id] || v.name).split("").map((c, k) => `<span style="animation-delay:${k * 35}ms">${c === " " ? "&nbsp;" : c}</span>`).join("");
+      const m = el("header", { className: "mast" }, `<span class="mast-no">${String(i + 1).padStart(2, "0")}</span>
+        <h1 aria-label="${v.name}">${title}</h1><p>${v.name} — ${v.desc}</p>
+        <div class="mast-meta"><b>${esc(H.name)}</b><br>${co}</div>`);
+      tab.prepend(m);
+    });
+  }
+  function replayMast(tab) {
+    const h = tab?.querySelector(".mast h1"); if (!h || RM) return;
+    h.querySelectorAll("span").forEach(s => { s.style.animation = "none"; void s.offsetWidth; s.style.animation = ""; });
+  }
+
   function init() {
     document.body.append(el("div", { id: "veil" }), el("div", { id: "tab-title" }));
-    bgInit(); cursor(); intro();
+    masts(); bgInit(); cursor(); intro();
     addEventListener("pointermove", spotlight, { passive: true });
     addEventListener("pointerdown", e => { spotlight(e); ripple(e); }, { passive: true });
     addEventListener("resize", indicator);
