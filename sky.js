@@ -11,7 +11,7 @@
   let ambRot = false, W = 0, Hh = 0, R = 0, cx = 0, cy = 0, dpr = 1, baseKey = "", objs = [], twk = [], lastFrame = 0, lastSide = 0, sunInfo = { alt: -90 };
 
   const simDate = () => new Date(Date.now() + offMin * 60000);
-  const bvColor = bv => {
+  const bvColor0 = bv => {
     bv = Math.max(-0.4, Math.min(2, bv));
     for (let i = 1; i < BV.length; i++) if (bv <= BV[i][0]) {
       const [a, ca] = BV[i - 1], [b, cb] = BV[i], t = (bv - a) / (b - a);
@@ -19,6 +19,8 @@
     }
     return BV[BV.length - 1][1];
   };
+  // 星の色は、ほぼ月白に寄せる（色温度の違いはごくわずかに残す）
+  const bvColor = bv => { const c = String(bvColor0(bv)).split(",").map(Number); return c.length === 3 ? c.map((v, k) => Math.round(v * .25 + [224, 224, 229][k] * .75)) : bvColor0(bv); };
 
   /* ---------- 初期化 ---------- */
   async function init() {
@@ -111,7 +113,7 @@
 
     // 空の色
     const day = Math.max(0, Math.min(1, (sun.alt + 10) / 16));
-    const top = mix([3, 5, 14], [44, 104, 170], day), edge = mix([10, 18, 42], [120, 170, 215], day);
+    const top = mix([7, 7, 9], [70, 72, 80], day), edge = mix([13, 14, 18], [104, 106, 114], day);
     const bg = c.createRadialGradient(cx, cy, 0, cx, cy, R);
     bg.addColorStop(0, `rgb(${top})`); bg.addColorStop(1, `rgb(${edge})`);
     c.save(); c.beginPath(); c.arc(cx, cy, R, 0, 7); c.fillStyle = bg; c.fill(); c.clip();
@@ -120,7 +122,7 @@
     if (sun.alt > -18) {
       const [sx, sy] = proj(sun.alt, sun.az), a = Math.max(0, 1 - Math.abs(sun.alt + 3) / 15);
       const gl = c.createRadialGradient(sx, sy, 0, sx, sy, R * 1.1);
-      gl.addColorStop(0, `rgba(255,150,80,${.55 * a})`); gl.addColorStop(.5, `rgba(255,120,90,${.18 * a})`); gl.addColorStop(1, "rgba(255,120,90,0)");
+      gl.addColorStop(0, `rgba(224,224,229,${.16 * a})`); gl.addColorStop(.5, `rgba(224,224,229,${.05 * a})`); gl.addColorStop(1, "rgba(224,224,229,0)");
       c.fillStyle = gl; c.fillRect(0, 0, W, Hh);
     }
 
@@ -128,7 +130,7 @@
     if (layers.mw) {
       c.globalCompositeOperation = "lighter";
       sky.mw.forEach((polys, li) => {
-        c.fillStyle = `rgba(190,205,255,${[.03, .035, .045, .06][li] * dk})`;
+        c.fillStyle = `rgba(224,224,229,${[.025, .03, .04, .05][li] * dk})`;
         polys.forEach(poly => {
           c.beginPath();
           poly.forEach(([ra, de], i) => {
@@ -184,7 +186,7 @@
 
     // 星座名
     if (layers.cname) {
-      c.font = `${Math.max(10, 12 * sc)}px system-ui,sans-serif`; c.textAlign = "center"; c.fillStyle = `rgba(150,185,255,${.5 * dk + .15})`;
+      c.font = `${Math.max(10, 12 * sc)}px system-ui,sans-serif`; c.textAlign = "center"; c.fillStyle = `rgba(224,224,229,${.32 * dk + .12})`;
       for (const k in sky.con) {
         const cn = sky.con[k], d = cn.pos[1] * D2R, [al, az] = altaz(cn.pos[0] * D2R, Math.sin(d), Math.cos(d), L);
         if (al > 6 && (cn.rank <= 2 || sc > 1.1)) { const [x, y] = proj(al, az); c.fillText(cn.ja, x, y); }

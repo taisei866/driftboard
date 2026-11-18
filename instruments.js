@@ -53,7 +53,8 @@ const Inst = (() => {
       for (let i = 0; i < P.length - 1; i++) if (el >= P[i][0] && el <= P[i + 1][0]) { a = P[i]; b = P[i + 1]; }
       const k = clamp((el - a[0]) / ((b[0] - a[0]) || 1), 0, 1), mix = (c1, c2) => { const p = x => [1, 3, 5].map(j => parseInt(x.slice(j, j + 2), 16)); const u = p(c1), v = p(c2); return u.map((q, j) => Math.round(lerp(q, v[j], k))); };
       const gray = c => c.map(v => Math.round(lerp(v, (el > 0 ? 150 : 40) * .9, cc / 100 * .75)));
-      return [gray(mix(a[1], b[1])), gray(mix(a[2], b[2]))];
+      const mono = c => { const l = c[0] * .3 + c[1] * .55 + c[2] * .15; return [Math.round(l * .97 + 3), Math.round(l * .97 + 3), Math.round(l + 6)].map(v => Math.min(229, v)); };
+      return [mono(gray(mix(a[1], b[1]))), mono(gray(mix(a[2], b[2])))];
     }
     function frame(n) {
       requestAnimationFrame(frame);
@@ -66,7 +67,7 @@ const Inst = (() => {
         for (const st of stars) { g.globalAlpha = vis * (.5 + .5 * Math.sin(t * 1.3 + st.p)); g.fillStyle = "#dfe8ff"; g.fillRect(st.x * W, st.y * H, st.s, st.s); } g.globalAlpha = 1; }
       // 太陽・月：その時刻の高さに合わせて上下する
       const y = H * (.92 - clamp(Math.abs(s.el) / 50, 0, 1) * .75), x = W * .72;
-      if (s.el > -3) { const r = 22; const sg = g.createRadialGradient(x, y, 0, x, y, r * 6); sg.addColorStop(0, `rgba(255,240,200,${.9 * (1 - s.cc / 130)})`); sg.addColorStop(.15, "rgba(255,210,140,.35)"); sg.addColorStop(1, "rgba(255,200,120,0)"); g.fillStyle = sg; g.fillRect(0, 0, W, H); }
+      if (s.el > -3) { const r = 22; const sg = g.createRadialGradient(x, y, 0, x, y, r * 6); sg.addColorStop(0, `rgba(240,240,244,${.9 * (1 - s.cc / 130)})`); sg.addColorStop(.12, "rgba(224,224,229,.22)"); sg.addColorStop(1, "rgba(224,224,229,0)"); g.fillStyle = sg; g.fillRect(0, 0, W, H); }
       else { const r = 13, mg = g.createRadialGradient(x, y, 0, x, y, r * 5); mg.addColorStop(0, `rgba(230,236,255,${.9 * (1 - s.cc / 120)})`); mg.addColorStop(.2, "rgba(200,215,255,.15)"); mg.addColorStop(1, "rgba(200,215,255,0)"); g.fillStyle = mg; g.fillRect(0, 0, W, H); }
       // 雲：雲量に応じて濃さと数、風で流れる
       const nC = Math.round(clouds.length * clamp(s.cc / 90, .08, 1)), spd = .004 + s.wind / 3600 * .6;
@@ -89,7 +90,7 @@ const Inst = (() => {
       g.fillStyle = night ? "#020307" : "rgba(10,16,30,.85)"; g.beginPath(); g.moveTo(0, H);
       const sk = rand(11); let xx = 0; while (xx < W) { const bw = 18 + sk() * 46, bh = H * (.06 + sk() * .12); g.lineTo(xx, H - bh); g.lineTo(xx + bw, H - bh); xx += bw; }
       g.lineTo(W, H); g.fill();
-      if (night) { const lk = rand(5); g.fillStyle = "rgba(255,210,140,.55)"; for (let i = 0; i < 60; i++) g.fillRect(lk() * W, H - lk() * H * .15, 1.5, 1.5); }
+      if (night) { const lk = rand(5); g.fillStyle = "rgba(224,224,229,.45)"; for (let i = 0; i < 60; i++) g.fillRect(lk() * W, H - lk() * H * .15, 1.5, 1.5); }
       // 読み取り
       const when = s.when.toLocaleString("ja-JP", { weekday: "short", hour: "2-digit", minute: "2-digit", timeZone: App.home.tz });
       $("#ww-time").textContent = off < .5 ? "いま" : `${Math.round(off)}時間後 ・ ${when}`;
@@ -130,8 +131,8 @@ const Inst = (() => {
       const [g, W, H] = fit(cv), cx = W / 2, cy = H / 2, Rx = Math.min(W / 2 - 20, H * 1.05), Ry = Math.min(Rx * .46, H / 2 - 18), R = Rx, when = new Date(Date.now() + days * 864e5), t = n / 1000;
       g.clearRect(0, 0, W, H);
       // 太陽
-      const sg = g.createRadialGradient(cx, cy, 0, cx, cy, R * .1); sg.addColorStop(0, "rgba(255,236,190,1)"); sg.addColorStop(.25, "rgba(255,190,90,.9)"); sg.addColorStop(1, "rgba(255,150,60,0)");
-      g.fillStyle = sg; g.beginPath(); g.arc(cx, cy, R * .1, 0, TAU); g.fill();
+      g.fillStyle = "#e0e0e5"; g.beginPath(); g.arc(cx, cy, 5, 0, TAU); g.fill();
+      g.strokeStyle = "rgba(224,224,229,.25)"; g.beginPath(); g.arc(cx, cy, 11, 0, TAU); g.stroke();
       const pts = [];
       PL.forEach(([id, ja, col, a], i) => {
         const k = rOf(a), rx = k * Rx, ry = k * Ry;
@@ -140,10 +141,10 @@ const Inst = (() => {
         let v; try { v = Astronomy.HelioVector(Astronomy.Body[id], when); } catch { return; }
         const ang = Math.atan2(v.y, v.x), x = cx + Math.cos(ang) * rx, y = cy - Math.sin(ang) * ry; pts.push([x, y]);
         const sz = [2.4, 3.4, 3.6, 3, 6.5, 5.8, 4.4, 4.2][i];
-        if (i === 5) { g.strokeStyle = "rgba(236,216,168,.6)"; g.beginPath(); g.ellipse(x, y, sz * 2, sz * .7, -.4, 0, TAU); g.stroke(); }
-        g.fillStyle = col; g.shadowColor = col; g.shadowBlur = 0; g.beginPath(); g.arc(x, y, sz, 0, TAU); g.fill(); g.shadowBlur = 0;
+        if (i === 5) { g.strokeStyle = "rgba(224,224,229,.45)"; g.beginPath(); g.ellipse(x, y, sz * 2, sz * .7, -.4, 0, TAU); g.stroke(); }
+        g.fillStyle = i === sel ? "#e0e0e5" : "rgba(224,224,229,.62)"; g.beginPath(); g.arc(x, y, sz * .7, 0, TAU); g.fill();
         if (i === sel) { g.strokeStyle = "rgba(220,235,255,.9)"; g.beginPath(); g.arc(x, y, sz + 6 + Math.sin(t * 3) * 1.5, 0, TAU); g.stroke(); }
-        g.fillStyle = i === sel ? "#fff" : "rgba(200,215,240,.6)"; g.font = `${i === sel ? 12 : 10.5}px 'Noto Sans JP',sans-serif`; g.fillText(ja, x + sz + 5, y - 4);
+        g.fillStyle = i === sel ? "#e0e0e5" : "rgba(224,224,229,.55)"; g.font = `300 11px 'Noto Sans JP',sans-serif`; g.fillText(ja, x + sz + 5, y - 4);
       });
       cv._pts = pts;
       // 地球から見た選んだ惑星の距離
@@ -163,12 +164,12 @@ const Inst = (() => {
      世界時計：指で回せる地球儀。昼と夜の境目、夜の街明かり、都市の時刻
      ===================================================================== */
   const Globe = (() => {
-    let cv, day, night, TW = 1024, TH = 512, rot = { lon: 0, lat: 22 }, spin = true, idleT, buf, bufW = 0, cities = [];
+    // 海岸線：Natural Earth（world-atlas, land-110m）を経度・緯度の折れ線にしたもの
+    let cv, land = null, rot = { lon: 0, lat: 22 }, spin = true, idleT, last = 0;
     function init() {
       cv = $("#ck-globe"); if (!cv) return;
       rot.lon = App.home.lon;
-      const load = src => new Promise(r => { const im = new Image(); im.onload = () => { const c = document.createElement("canvas"); c.width = TW; c.height = TH; const x = c.getContext("2d"); x.drawImage(im, 0, 0, TW, TH); r(x.getImageData(0, 0, TW, TH).data); }; im.src = src; });
-      Promise.all([load("img/day.jpg"), load("img/night.jpg")]).then(([a, b]) => { day = a; night = b; });
+      fetch("data/land.json").then(r => r.json()).then(d => land = d).catch(() => {});
       let y0 = null;
       cv.addEventListener("pointerdown", e => { y0 = e.clientY; spin = false; clearTimeout(idleT); cv.parentNode.classList.add("used"); });
       cv.addEventListener("pointermove", e => { if (y0 == null) return; rot.lat = clamp(rot.lat + (e.clientY - y0) * .35, -70, 70); y0 = e.clientY; });
@@ -178,46 +179,58 @@ const Inst = (() => {
     }
     function frame(n) {
       requestAnimationFrame(frame);
-      if (!cv || !day || !live("clock")) return;
-      if (n - (frame.l || 0) < 40) return; frame.l = n;
-      if (spin) rot.lon += .08;
-      const S = Math.min(cv.clientWidth, cv.clientHeight), dp = Math.min(devicePixelRatio || 1, 1.5), N = Math.min(460, Math.round(S * dp));
-      if (cv.width !== N) { cv.width = cv.height = N; }
-      const g = cv.getContext("2d");
-      if (bufW !== N) { buf = g.createImageData(N, N); bufW = N; }
-      const px = buf.data, sp = Sun.pos(), D = Math.PI / 180;
-      const sx = Math.cos(sp.lat * D) * Math.cos(sp.lon * D), sy = Math.cos(sp.lat * D) * Math.sin(sp.lon * D), sz = Math.sin(sp.lat * D);
-      const l0 = rot.lon * D, p0 = rot.lat * D, cp = Math.cos(p0), spp = Math.sin(p0), r = N / 2 - 2;
-      for (let j = 0; j < N; j++) {
-        const y = (N / 2 - j) / r;
-        for (let i = 0; i < N; i++) {
-          const x = (i - N / 2) / r, rr = x * x + y * y, o = (j * N + i) * 4;
-          if (rr > 1) { px[o + 3] = 0; continue; }
-          const z = Math.sqrt(1 - rr);
-          // 正射図法の逆変換：画面上の点 → 緯度・経度
-          const lat = Math.asin(z * spp + y * cp), lon = l0 + Math.atan2(x, z * cp - y * spp);
-          const cl = Math.cos(lat), vx = cl * Math.cos(lon), vy = cl * Math.sin(lon), vz = Math.sin(lat);
-          const sun = vx * sx + vy * sy + vz * sz, k = clamp((sun + .08) / .16, 0, 1);   // 境目をなめらかに
-          let u = ((lon / D + 180) % 360 + 360) % 360 / 360 * TW | 0, v = (90 - lat / D) / 180 * TH | 0; if (v >= TH) v = TH - 1;
-          const q = (v * TW + u) * 4, shade = .55 + .45 * z;
-          px[o] = (day[q] * k * shade + night[q] * (1 - k) * 1.1); px[o + 1] = (day[q + 1] * k * shade + night[q + 1] * (1 - k) * 1.05); px[o + 2] = (day[q + 2] * k * shade + night[q + 2] * (1 - k));
-          px[o + 3] = 255;
+      if (!cv || !live("clock") || n - last < 33) return; last = n;
+      if (spin) rot.lon += .06;
+      const [g, W, H] = fit(cv), N = Math.min(W, H), r = N / 2 - 14, cx = W / 2, cy = H / 2, D = Math.PI / 180;
+      const l0 = rot.lon * D, p0 = rot.lat * D, cp = Math.cos(p0), spp = Math.sin(p0);
+      // 経度・緯度 → 画面（正射図法）。裏側は z<0
+      const P = (lat, lon) => { const la = lat * D, lo = lon * D - l0, x = Math.cos(la) * Math.sin(lo), cz = Math.cos(la) * Math.cos(lo); return [cx + x * r, cy - (Math.sin(la) * cp - cz * spp) * r, Math.sin(la) * spp + cz * cp]; };
+      const sp = Sun.pos();
+      g.clearRect(0, 0, W, H);
+      // 夜の側：太陽と反対側の半球をわずかに暗く塗る
+      g.save(); g.beginPath(); g.arc(cx, cy, r, 0, TAU); g.clip();
+      g.fillStyle = "#0b0c10"; g.fillRect(0, 0, W, H);
+      const [ax, ay, az] = P(-sp.lat, sp.lon + 180);   // 反太陽点
+      if (az > -1) { const ng = g.createRadialGradient(ax, ay, 0, ax, ay, r * 1.6); ng.addColorStop(0, "rgba(0,0,0,.75)"); ng.addColorStop(.62, "rgba(0,0,0,.45)"); ng.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = ng; g.fillRect(0, 0, W, H); }
+      // 経緯線
+      g.strokeStyle = "rgba(224,224,229,.06)"; g.lineWidth = 1;
+      const line = pts => { g.beginPath(); let pen = false; for (const [la, lo] of pts) { const [x, y, z] = P(la, lo); if (z < 0) { pen = false; continue; } pen ? g.lineTo(x, y) : g.moveTo(x, y); pen = true; } g.stroke(); };
+      for (let lo = -180; lo < 180; lo += 30) line(Array.from({ length: 37 }, (_, i) => [-90 + i * 5, lo]));
+      for (let la = -60; la <= 60; la += 30) line(Array.from({ length: 73 }, (_, i) => [la, -180 + i * 5]));
+      // 海岸線：昼の側は月白、夜の側は沈んだグレー
+      if (land) {
+        const sx = Math.cos(sp.lat * D) * Math.cos(sp.lon * D), sy = Math.cos(sp.lat * D) * Math.sin(sp.lon * D), sz = Math.sin(sp.lat * D);
+        g.lineWidth = .9;
+        for (const ring of land) {
+          let pen = false, prevDay = null;
+          g.beginPath();
+          for (const [lo, la] of ring) {
+            const [x, y, z] = P(la, lo); if (z < 0) { pen = false; continue; }
+            const cl = Math.cos(la * D), day = cl * Math.cos(lo * D) * sx + cl * Math.sin(lo * D) * sy + Math.sin(la * D) * sz > 0;
+            if (pen && day !== prevDay) { g.strokeStyle = prevDay ? "rgba(224,224,229,.72)" : "rgba(224,224,229,.22)"; g.lineTo(x, y); g.stroke(); g.beginPath(); g.moveTo(x, y); }
+            else pen ? g.lineTo(x, y) : g.moveTo(x, y);
+            pen = true; prevDay = day;
+          }
+          g.strokeStyle = prevDay ? "rgba(224,224,229,.72)" : "rgba(224,224,229,.22)"; g.stroke();
         }
       }
-      g.putImageData(buf, 0, 0);
-      // 大気のふち
-      const ag = g.createRadialGradient(N / 2, N / 2, r * .92, N / 2, N / 2, r * 1.02); ag.addColorStop(0, "rgba(201,201,209,0)"); ag.addColorStop(1, "rgba(201,201,209,.45)");
-      g.fillStyle = ag; g.beginPath(); g.arc(N / 2, N / 2, r, 0, TAU); g.fill();
-      // 都市
-      cities = (window.CK_CITIES || []).concat([{ n: App.home.name, tz: App.home.tz, lat: App.home.lat, lon: App.home.lon, home: true }]);
-      g.font = `${11 * dp}px 'Inter',monospace`; g.textBaseline = "middle";
+      // 昼と夜の境目（明暗境界線）を点線で
+      g.setLineDash([2, 4]); g.strokeStyle = "rgba(224,224,229,.45)";
+      const tpts = Array.from({ length: 121 }, (_, i) => { const t = i / 120 * TAU, la0 = sp.lat * D, lo0 = sp.lon * D;
+        // 太陽直下点から90°離れた大円
+        const la = Math.asin(Math.cos(la0) * Math.cos(t)), lo = lo0 + Math.atan2(Math.sin(t), -Math.sin(la0) * Math.cos(t));
+        return [la / D, lo / D]; });
+      line(tpts); g.setLineDash([]);
+      g.restore();
+      g.strokeStyle = "rgba(224,224,229,.18)"; g.beginPath(); g.arc(cx, cy, r, 0, TAU); g.stroke();
+      // 都市：点と現地時刻
+      const cities = (window.CK_CITIES || []).concat([{ n: App.home.name, tz: App.home.tz, lat: App.home.lat, lon: App.home.lon, home: true }]);
+      g.font = "300 11px Inter,'Noto Sans JP',sans-serif"; g.textBaseline = "middle";
       for (const c of cities) {
-        const la = c.lat * D, lo = c.lon * D - l0, cx = Math.cos(la) * Math.sin(lo), cz = Math.cos(la) * Math.cos(lo);
-        const X = cx, Y = Math.sin(la) * cp - cz * spp, Z = Math.sin(la) * spp + cz * cp; if (Z < .05) continue;
-        const qx = N / 2 + X * r, qy = N / 2 - Y * r;
-        g.fillStyle = c.home ? "#c9c9d1" : "rgba(255,255,255,.85)"; g.beginPath(); g.arc(qx, qy, (c.home ? 3.5 : 2.2) * dp, 0, TAU); g.fill();
+        const [x, y, z] = P(c.lat, c.lon); if (z < .08) continue;
+        g.fillStyle = c.home ? "#e0e0e5" : "rgba(224,224,229,.7)"; g.fillRect(x - (c.home ? 2 : 1.5), y - (c.home ? 2 : 1.5), c.home ? 4 : 3, c.home ? 4 : 3);
         const tm = new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: c.tz });
-        g.fillStyle = `rgba(230,240,255,${.35 + Z * .6})`; g.fillText(`${c.n} ${tm}`, qx + 6 * dp, qy);
+        g.fillStyle = `rgba(224,224,229,${.3 + z * .6})`; g.fillText(`${c.n}  ${tm}`, x + 7, y);
       }
     }
     return { init };
@@ -244,7 +257,7 @@ const Inst = (() => {
       g.save(); g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.clip();
       const sa = row.sa0, cc = row.cc0 ?? 50, dayk = clamp((sa + 12) / 18, 0, 1);
       // 空の地色：昼は青、薄明は群青、夜は黒
-      g.fillStyle = `rgb(${lerp(3, 80, dayk)},${lerp(5, 130, dayk)},${lerp(12, 200, dayk)})`; g.fillRect(0, 0, W, H);
+      g.fillStyle = `rgb(${lerp(7, 92, dayk)},${lerp(7, 94, dayk)},${lerp(9, 102, dayk)})`; g.fillRect(0, 0, W, H);
       // 星：ピントが合うまで最初の1秒はぼかす。暗く晴れているほど多く、揺らぎ（シーイング）も表現
       const focus = clamp(k / 1.2, 0, 1), vis = (1 - dayk) * (1 - cc / 100) * (1 - (row.ma0 > 0 ? row.ill * .4 : 0));
       const rot = n / 1000 * .01 + (i * 1.3);
@@ -253,7 +266,7 @@ const Inst = (() => {
         if (s.m < .35 - vis * .3) continue;
         const a = vis * (.25 + s.m * .9) * (.75 + .25 * Math.sin(n / 260 + s.p)), sz = (.5 + s.m * 2.2) * (1 + (1 - focus) * 3);
         g.globalAlpha = clamp(a * (.4 + focus * .6), 0, 1);
-        g.fillStyle = s.c > .85 ? "#ffd6a8" : s.c < .15 ? "#bcd4ff" : "#f2f5ff";
+        g.fillStyle = "#e0e0e5";
         g.beginPath(); g.arc(cx + x * R, cy + y * R, sz, 0, TAU); g.fill();
       }
       g.globalAlpha = 1;
@@ -266,7 +279,7 @@ const Inst = (() => {
       // 接眼部の縁と照準
       const vg = g.createRadialGradient(cx, cy, R * .6, cx, cy, R); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.85)");
       g.fillStyle = vg; g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.fill();
-      g.strokeStyle = "rgba(255,90,80,.35)"; g.lineWidth = 1;
+      g.strokeStyle = "rgba(224,224,229,.35)"; g.lineWidth = 1;
       g.beginPath(); g.moveTo(cx - R * .12, cy); g.lineTo(cx - R * .03, cy); g.moveTo(cx + R * .03, cy); g.lineTo(cx + R * .12, cy); g.moveTo(cx, cy - R * .12); g.lineTo(cx, cy - R * .03); g.moveTo(cx, cy + R * .03); g.lineTo(cx, cy + R * .12); g.stroke();
       g.strokeStyle = "rgba(140,180,240,.35)"; g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.stroke();
       for (let a = 0; a < 72; a++) { const an = a / 72 * TAU, l = a % 6 ? 4 : 9; g.beginPath(); g.moveTo(cx + Math.cos(an) * R, cy + Math.sin(an) * R); g.lineTo(cx + Math.cos(an) * (R - l), cy + Math.sin(an) * (R - l)); g.stroke(); }

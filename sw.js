@@ -1,6 +1,6 @@
 /* Driftboard service worker: 自分のファイルはキャッシュして高速起動（裏で更新） */
-const CACHE = "driftboard-v25";
-const CORE = ["./", "index.html", "config.js", "style.css", "design.css", "gallery.css", "touch.css", "app.js", "nightmap.js", "data.js", "setup.js", "flights.js", "weather.js", "radio.js", "space.js", "sky.js", "clock.js", "wind.js", "lights.js", "obs.js",
+const CACHE = "driftboard-v26";
+const CORE = ["./", "index.html", "config.js", "style.css", "app.js", "nightmap.js", "data.js", "setup.js", "flights.js", "weather.js", "radio.js", "space.js", "sky.js", "clock.js", "wind.js", "lights.js", "obs.js",
   "ambient.js", "instruments.js", "design.js", "touch.js", "lib/leaflet.js", "lib/leaflet.css", "lib/satellite.min.js", "lib/astronomy.browser.min.js",
   "data/sky.json", "img/day.jpg", "img/night.jpg", "icons/icon-192.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting())); });

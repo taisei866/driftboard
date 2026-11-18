@@ -25,9 +25,9 @@
   const ground = d => d.alt_baro === "ground";
   const altFt = d => ground(d) ? 0 : (typeof d.alt_baro === "number" ? d.alt_baro : (d.alt_geom ?? null));
   const color = d => {
-    if (ground(d)) return "#8a96ab";
+    if (ground(d)) return "#4a4a52";
     const a = Math.min(Math.max(altFt(d) ?? 0, 0), 45000);
-    return `hsl(${28 + a / 45000 * 187} ${45 + a / 45000 * 10}% ${60 + a / 45000 * 9}%)`;
+    const l = Math.round(42 + a / 45000 * 46); return `hsl(240 6% ${l}%)`;
   };
   const csOf = d => (d.flight || "").trim() || d.r || d.hex.toUpperCase();
   const isFlightNo = c => /^[A-Z]{3}\d{1,4}[A-Z]?$/.test(c);
@@ -391,7 +391,7 @@
     g.clearRect(0, 0, W, Hh);
     // 画面の地：中心ほどわずかに明るい
     const bgr = g.createRadialGradient(cx, cy, 0, cx, cy, R * 1.25);
-    bgr.addColorStop(0, "#071526"); bgr.addColorStop(1, "#02050a"); g.fillStyle = bgr; g.fillRect(0, 0, W, Hh);
+    bgr.addColorStop(0, "#0d0e12"); bgr.addColorStop(1, "#070709"); g.fillStyle = bgr; g.fillRect(0, 0, W, Hh);
     // 目盛り
     g.save(); g.translate(cx, cy);
     g.strokeStyle = "rgba(201,201,209,.16)"; g.lineWidth = 1;
@@ -420,7 +420,7 @@
       const q = rXY(p); if (!q) continue;
       if (crossed(q[3]) || p.hit == null) p.hit = now - (p.hit == null ? ((sw - q[3] + Math.PI * 2) % (Math.PI * 2)) / (Math.PI * 2) * SWEEP : 0);
       const age = now - p.hit, lv = Math.max(0, Math.exp(-age / 2.2)), on = sel === p.hex, em = emerg(p.d);
-      const col = em ? "255,110,95" : ground(p.d) ? "150,165,190" : "150,205,255";
+      const col = em ? "201,168,163" : ground(p.d) ? "104,104,115" : "224,224,229";
       // 航跡（点々）
       const tr = trails.get(p.hex) || [];
       tr.forEach((ll, i) => { const z = rXY({ cur: ll, d: p.d }); if (!z) return; g.fillStyle = `rgba(${col},${(.05 + i / tr.length * .18) * (on ? 2 : 1)})`; g.fillRect(z[0] - 1, z[1] - 1, 2, 2); });

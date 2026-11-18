@@ -115,6 +115,18 @@ const Drift = (() => {
     requestAnimationFrame(parallax);
   }
 
+  /* ---------- 初めての一回だけ：操作の手がかり ---------- */
+  function hint() {
+    let seen = false; try { seen = localStorage.getItem("db.hint"); } catch {}
+    if (seen) return;
+    const h = el("div", { id: "hint", ariaHidden: "true" }, `<i class="hn-edge l"></i><i class="hn-edge r"></i>
+      <div class="hn-tx"><span>←</span>左右にスワイプして移動<span>→</span></div>
+      <div class="hn-sub">地図や星空の上では、画面の端からなぞると移動します ・ 一覧は右上の INDEX</div>`);
+    document.body.appendChild(h);
+    const end = () => { h.classList.add("out"); setTimeout(() => h.remove(), 900); try { localStorage.setItem("db.hint", 1); } catch {} };
+    setTimeout(end, 6500); addEventListener("touchstart", () => setTimeout(end, 1200), { once: true, passive: true });
+  }
+
   function init() {
     document.body.classList.add("touchui");
     // 右上：INDEX、下端：目盛りと現在地、前後への極小ボタン、端の座標文字
@@ -161,7 +173,7 @@ const Drift = (() => {
     addEventListener("touchcancel", () => { track = false; if (tab) { tab.style.transform = ""; tab.style.opacity = ""; tab.style.filter = ""; } });
     addEventListener("pointerdown", ripple, { passive: true });
     document.addEventListener("scroll", e => { if (e.target.classList && e.target.classList.contains("tab")) target = e.target.scrollTop; }, { capture: true, passive: true });
-    wrapShow(); ruler();
+    wrapShow(); ruler(); hint();
     requestAnimationFrame(parallax);
   }
   return { init, go };

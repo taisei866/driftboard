@@ -25,7 +25,7 @@
   }
   const isRain = c => (c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95;
   const isSnow = c => (c >= 71 && c <= 77) || c === 85 || c === 86;
-  const bg = () => wx && wx.is_day ? "#0b1424" : "#04060a";
+  const bg = () => wx && wx.is_day ? "#0d0e12" : "#070709";
 
   function seed() {
     const area = W * H, cloud = wx ? wx.cloud_cover ?? 50 : 50;
@@ -37,12 +37,10 @@
   const newP = () => ({ x: Math.random() * W, y: Math.random() * H, life: Math.random() * 400 + 120, age: 0 });
   const newD = init => ({ x: Math.random() * W, y: init ? Math.random() * H : -10, v: Math.random() * .5 + .75, s: Math.random() * .6 + .7 });
 
-  /* 気温→色（寒い=白っぽい青、暖かい=青緑〜淡い金） */
+  /* 気温→明るさ（寒いほど冴えた月白、暖かいほど少し沈んだグレー。色相は使わない） */
   function color(temp, a) {
-    const k = Math.max(0, Math.min(1, (temp + 10) / 45));
-    const h = lerp(212, 175, k) - (k > .7 ? (k - .7) * 400 : 0);
-    const s = lerp(55, 65, k), l = lerp(78, 62, k);
-    return `hsla(${h},${s}%,${l}%,${a})`;
+    const k = Math.max(0, Math.min(1, (temp + 10) / 45)), l = lerp(88, 66, k);
+    return `hsla(240,5%,${l}%,${a})`;
   }
 
   function frame(t) {
@@ -59,7 +57,7 @@
     const sc = 1 / 260;
 
     // 残像を少しずつ消す
-    g.fillStyle = wx && wx.is_day ? "rgba(11,20,36,.075)" : "rgba(4,6,10,.07)";
+    g.fillStyle = wx && wx.is_day ? "rgba(13,14,18,.075)" : "rgba(7,7,9,.07)";
     g.fillRect(0, 0, W, H);
 
     g.lineWidth = 1.1; g.lineCap = "round";
@@ -80,7 +78,7 @@
     // 雨・雪
     if (drops.length) {
       const snow = isSnow(code);
-      g.strokeStyle = snow ? "rgba(235,242,255,.7)" : "rgba(160,200,245,.45)"; g.fillStyle = "rgba(235,242,255,.75)";
+      g.strokeStyle = snow ? "rgba(224,224,229,.7)" : "rgba(224,224,229,.35)"; g.fillStyle = "rgba(224,224,229,.75)";
       g.lineWidth = 1; g.beginPath();
       for (const d of drops) {
         const fall = snow ? 38 * d.v : 520 * d.v, drift = vx0 * px * (snow ? .6 : .25);
