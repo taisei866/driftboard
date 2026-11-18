@@ -135,7 +135,7 @@
       if (p.x < -60 || p.y < -60 || p.x > W + 60 || p.y > H + 60) continue;
       const [lv, ci] = level(Lt, t), rgb = COL[Lt.col[ci]] || COL.white;
       // 引きの画角では光を小さく・やや控えめにして、密集した海域が白く飽和しないようにする
-      const zf = z < 6 ? .22 + (z - 3) * .1 : Math.max(.55, Math.min(1.8, (z - 5) / 5));
+      const zf = z < 6 ? .22 + (z - 3) * .1 : Math.max(.55, Math.min(1.15, (z - 5) / 5));
       const base = Math.max(3, Math.min(16, 2.5 + (Lt.rng || 3) * .55)) * zf * (Lt.minor ? .7 : 1);
       if (lv > .01) {
         const r = base * (2.4 + lv * 1.6);
@@ -327,6 +327,7 @@
     $("#lt-tour-btn").onclick = () => tour(!touring);
     $("#lt-filter-btn").onclick = e => { e.stopPropagation(); const b = $("#lt-filter"); b.hidden = !b.hidden; if (!b.hidden) filterUI(); };
     document.addEventListener("click", e => { const b = $("#lt-filter"); if (b && !b.hidden && !b.contains(e.target)) b.hidden = true; });
+    document.addEventListener("keydown", e => { if (e.key === "Escape") $("#lt-filter").hidden = true; });
     fCount();
     map.on("click", e => {
       const p = e.containerPoint; let best = null, bd = 24;

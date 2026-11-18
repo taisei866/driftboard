@@ -152,7 +152,7 @@
       const dl = dd === today ? "今日" : dd > today ? "明日" : "昨日";
       const diff = diffMin === 0 ? "時差なし" : `時差${diffMin > 0 ? "+" : "−"}${Math.floor(Math.abs(diffMin) / 60)}${Math.abs(diffMin) % 60 ? ":" + String(Math.abs(diffMin) % 60).padStart(2, "0") : ""}時間`;
       card.querySelector(".d1").textContent = `${dl} ・ ${c.home ? (day ? "昼" : e > -6 ? "薄明" : "夜") : diff}`;
-      card.querySelector(".d2").textContent = w && w.daily ? `日の出 ${w.daily.sunrise[0].slice(11, 16)} ・ 日の入 ${w.daily.sunset[0].slice(11, 16)}` : (e > -6 && !day ? "薄明" : day ? "昼" : "夜");
+      card.querySelector(".d2").textContent = w && w.daily ? `日の出 ${w.daily.sunrise[0].slice(11, 16)}　日の入 ${w.daily.sunset[0].slice(11, 16)}` : (e > -6 && !day ? "薄明" : day ? "昼" : "夜");
       const wxe = card.querySelector(".wx");
       if (w && w.current) {
         const [icn, lb] = wxInfo(w.current.weather_code, w.current.is_day);

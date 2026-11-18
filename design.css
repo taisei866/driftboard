@@ -322,3 +322,68 @@ body.amb .tab.scroll{padding-top:clamp(96px,16vh,150px)}
 body.amb[data-tab=clock] #amb-clock{display:none}
 body.amb[data-tab=clock] .tab.scroll{padding-top:16px}
 @media (orientation:portrait){ #amb-clock div{font-size:44px} }
+
+/* =====================================================================
+   操作テストで見つかった点の修正
+   ===================================================================== */
+/* 2. 浮かぶ窓は不透明にして、後ろの文字が透けないように */
+.ff,#amb-panel,.modal-box,.obs-pop,.lt-info,.lt-tour,#toast{background:rgba(10,14,22,.97)!important;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+#launcher .ln-box{background:transparent!important}
+#launcher.modal{background:rgba(2,4,8,.88)}
+
+/* 1. 灯台の絞り込み（スマホ）：下から出る小さめの窓にして、上の地図とボタンを残す */
+@media (max-width:600px){
+  .lt-ff{left:8px!important;right:8px!important;width:auto!important;bottom:8px!important;top:auto!important;max-height:58%!important}
+  .ff:not(.lt-ff){max-height:70%!important}
+}
+
+/* 3. 「すべて」のピンの数 */
+.ln-count{display:inline-block;margin-left:10px;font-family:var(--mono);font-weight:500;color:var(--acc);letter-spacing:.08em}
+.ln-full{display:block;margin-top:4px;color:var(--warn)}
+#launcher .lead.warn{animation:shake .5s}
+#launcher .lead.warn .ln-full{color:#ffb64a;font-weight:500}
+@keyframes shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+
+/* 7. 世界時計のカード：折り返しを防ぐ */
+.city .sub{white-space:nowrap;overflow:hidden;text-overflow:clip;font-size:11px}
+.city .sub.d2{font-family:var(--mono);letter-spacing:-.02em}
+
+/* 8. 場所の設定（スマホ）：キーボードに隠れないよう上寄せ */
+@media (max-width:600px){ #setup.modal{align-items:start;padding-top:max(16px,env(safe-area-inset-top))} }
+
+/* 9・10. スマホ横向き：上下のバーと見出しを薄く */
+@media (orientation:landscape) and (max-height:500px){
+  :root{--hdr:40px;--nav:42px}
+  #tabs button span{display:none}
+  #tabs button .ic{width:20px;height:20px}
+  .btn.icon{width:34px;height:34px}
+  .loc-btn{height:30px}
+  .mast{margin:0 2px 8px;padding-bottom:6px;gap:2px 12px}
+  .mast h1{font-size:24px}
+  .mast p{display:none}
+  .mast-meta{display:none}
+  .tab.scroll{padding:8px 12px}
+}
+@media (max-width:600px) and (orientation:portrait){ .mast h1{font-size:30px} }
+
+/* 11. 指で押しやすい大きさに */
+@media (pointer:coarse){
+  .chip,#sk-layers .chip{min-height:36px!important;height:auto!important;padding:0 12px!important}
+  .seg.mini button,.sk-bottom .seg button{min-height:36px;height:36px!important}
+  .dots button{width:36px;height:36px}
+  .btn.sm{min-height:38px}
+  input[type=range]{height:32px}
+  .star{width:44px;height:44px}
+}
+input[type=range]{cursor:pointer}
+
+/* 12. 天文台の地名は折り返して全部見せる */
+.obs-place{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.5}
+
+/* 13. アンビエントの時計：下の地図の文字と重ならないよう、うっすら暗い下地を敷く */
+#amb-clock{padding:14px 22px 14px 16px;border-radius:18px;background:radial-gradient(120% 120% at 30% 40%,rgba(2,4,8,.78),rgba(2,4,8,.45) 60%,transparent 80%)}
+
+/* 14. 緊急・真上通過のお知らせ：閉じるボタン付きで小さめに */
+.alert{display:flex;flex-direction:column;padding:9px 40px 9px 14px;font-size:13.5px;max-width:min(360px,80%)}
+.alert-x{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;border-radius:50%;background:none;color:var(--mut);display:grid;place-items:center}
+.alert-x:hover{color:var(--tx);background:rgba(255,255,255,.06)}

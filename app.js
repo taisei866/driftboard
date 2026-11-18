@@ -198,6 +198,7 @@ const App = {
   launcher(open) {
     const L = $("#launcher");
     if (!open) { L.hidden = true; return; }
+    $("#launcher .lead").innerHTML = `ピンのボタンで下のバーに並べる画面を選べます（最大4つ）。<b class="ln-count">${this.pins.length} / 4</b>${this.pins.length >= 4 ? `<span class="ln-full">いっぱいです。追加するには先にどれかのピンを外してください</span>` : ""}`;
     $("#ln-grid").innerHTML = this.views.map((x, i) => `
       <div class="ln-card ${x.id === this.cur ? "on" : ""}" data-open="${x.id}" role="button" tabindex="0" style="--i:${i}">
         <span class="ln-no">${String(i + 1).padStart(2, "0")}</span>
@@ -210,10 +211,13 @@ const App = {
   togglePin(id) {
     if (this.pins.includes(id)) { if (this.pins.length <= 1) return; this.pins = this.pins.filter(x => x !== id); }
     else {
-      if (this.pins.length >= 4) { toast("下のバーに置けるのは4つまでです。先にどれかを外してください"); return; }
+      if (this.pins.length >= 4) { const l = $("#launcher .lead"); l.classList.remove("warn"); void l.offsetWidth; l.classList.add("warn"); return; }
       this.pins = this.views.map(v => v.id).filter(x => x === id || this.pins.includes(x));
     }
-    Store.set("pins", this.pins); this.nav(); this.launcher(true);
+    Store.set("pins", this.pins); this.nav();
+    $$("#ln-grid .ln-pin").forEach(b => b.classList.toggle("on", this.pins.includes(b.dataset.pin)));   // 一覧は作り直さず、ピンの表示だけ更新
+    const l = $("#launcher .lead"), n = this.pins.length;
+    l.innerHTML = `ピンのボタンで下のバーに並べる画面を選べます（最大4つ）。<b class="ln-count">${n} / 4</b>${n >= 4 ? `<span class="ln-full">いっぱいです。追加するには先にどれかのピンを外してください</span>` : ""}`;
   },
   fullscreen(toggle) {
     const d = document;

@@ -172,6 +172,7 @@
     const my = ++token;
     clearTimeout(watchdog); silence(); playing = false;
     cur = slim(st); Store.set("rdLast", cur); renderNow(); render();
+    if (visible && innerHeight > innerWidth) { const n = $(".panel.now"), r = n.getBoundingClientRect(); if (r.top < 60 || r.bottom > innerHeight) n.scrollIntoView({ behavior: "smooth", block: "start" }); }
     if (st.geo_lat != null && visible) map.flyTo([st.geo_lat, st.geo_long], Math.max(map.getZoom(), 4), { duration: 1.2 });
     const u = st.url_resolved || st.url;
     const hls = st.hls === 1 || /\.m3u8(\?|$)/i.test(u);

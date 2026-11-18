@@ -276,7 +276,8 @@
       ? `<div class="fd-route"><div><b>${esc(aps[0].iata || aps[0].icao)}</b>${esc(aps[0].city || aps[0].name || "")}</div><div class="arrow"></div>
          <div style="text-align:right"><b>${esc(aps[aps.length - 1].iata || aps[aps.length - 1].icao)}</b>${esc(aps[aps.length - 1].city || aps[aps.length - 1].name || "")}</div></div>`
       : r ? `<div class="fd-route"><b>${esc(routeTxt(r))}</b></div>` : `<div class="muted small" style="margin:6px 0">経路情報なし</div>`;
-    box.hidden = false;
+    const wasHidden = box.hidden; box.hidden = false;
+    if (wasHidden) reveal(box);
     box.innerHTML = `
       <div class="fd">
         ${ph.src ? `<img class="fd-photo" src="${esc(ph.src)}" alt="">` : `<div class="fd-photo">${ic("i-plane", "lg")}</div>`}
@@ -321,13 +322,16 @@
     }
   }
 
+  // 縦長の画面では詳細が地図の下に出るので、見える位置までスクロールする
+  function reveal(el) { if (innerHeight > innerWidth) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 80); }
   let alertT;
   function showAlert(p, title, sub, bad) {
     const a = $("#fl-alert"); a.classList.toggle("bad", !!bad);
     a.dataset.k = p.hex;
-    a.innerHTML = `${esc(title)}<small>${esc(sub)}</small>`;
+    a.innerHTML = `${esc(title)}<small>${esc(sub)}</small><button class="alert-x" aria-label="閉じる">${ic("i-x", "sm")}</button>`;
     a.hidden = false;
-    clearTimeout(alertT); alertT = setTimeout(() => a.hidden = true, 15000);
+    a.querySelector(".alert-x").onclick = e => { e.stopPropagation(); a.hidden = true; };
+    clearTimeout(alertT); alertT = setTimeout(() => a.hidden = true, 10000);
   }
 
   App.reg("flight", {
