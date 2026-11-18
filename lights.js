@@ -21,7 +21,14 @@
     return null;
   }
   function pattern(L) {
-    const segs0 = pattern0(L), cols = L.col.length;
+    let segs0 = pattern0(L);
+    if (!segs0.some(x => x.on)) segs0 = pattern0({ ...L, seq: "" });   // 光り方の詳細が読めない書き方のときは、記号（Fl など）から作る
+    // ごく短いせん光（0.1秒など）は画面上で見落としやすいので、最低0.3秒は光らせる（その分、直後の消灯を短くする）
+    segs0.forEach((x, i) => {
+      const nx = segs0[(i + 1) % segs0.length];
+      if (x.on && x.d < .3 && nx && !nx.on && nx.d > .3 - x.d + .1) { nx.d -= .3 - x.d; x.d = .3; }
+    });
+    const cols = L.col.length;
     // 色が交互に変わる灯りで、1周期の点灯が色の数より少ない場合は、色の数だけ周期を繰り返して交互にする
     const ons = segs0.filter(x => x.on).length;
     if (cols > 1 && ons < cols) {
@@ -34,8 +41,10 @@
   function pattern0(L) {
     const segs = [], push = (d, on, c = 0) => d > 0 && segs.push({ d, on, c });
     const cols = L.col.length;
-    if (L.seq) {
-      L.seq.split(",").forEach(grp => grp.split("+").forEach(tok => {
+    let sq = (L.seq || "").replace(/\[[^\]]*\]/g, "").trim();
+    if (/^\(.*\)$/.test(sq) && /^\([\d.]+\+\(/.test(sq)) sq = sq.slice(1, -1);   // 「(00.5+(02.5))」のように全体が括弧で囲まれた書き方
+    if (sq) {
+      sq.split(",").forEach(grp => grp.split("+").forEach(tok => {
         tok = tok.trim(); const off = /\(/.test(tok), v = parseFloat(tok.replace(/[()]/g, ""));
         if (!isNaN(v)) push(v, !off);
       }));
@@ -46,7 +55,8 @@
     const m = (L.ch || "Fl").match(/^(Al\.)?(LFl|Fl|Oc|Iso|VQ|UQ|IQ|Q|Mo|F)(?:\(([^)]+)\))?/) || [, "", "Fl", "1"];
     const kind = m[2], arg = m[3] || "1", n = parseInt(arg) || 1;
     const def = { F: 1, Fl: 5, LFl: 10, Oc: 5, Iso: 4, Q: 1, VQ: .5, UQ: .25, IQ: 15, Mo: 8 }[kind] || 5;
-    let P = L.per > 0 ? L.per : def, k = 0;
+    const cont = (kind === "Q" || kind === "VQ" || kind === "UQ") && !m[3];   // 回数指定のない急せん光は、周期に関係なく一定の速さで光り続ける
+    let P = L.per > 0 && !cont ? L.per : def, k = 0;
     const nextC = () => (k++) % cols;
     if (kind === "F") push(1, true, 0);
     else if (kind === "Iso") { push(P / 2, true, nextC()); push(P / 2, false); }
@@ -61,10 +71,11 @@
     } else {
       const fl = { Fl: P <= 2.5 ? .3 : .6, LFl: 2, Q: .3, VQ: .15, UQ: .08, IQ: .3 }[kind] || .5;
       const gap = { Fl: 1.1, LFl: 1.6, Q: .7, VQ: .35, UQ: .17, IQ: .7 }[kind] || 1;
-      if ((kind === "Q" || kind === "VQ" || kind === "UQ") && !m[3]) { push(fl, true, nextC()); push(Math.max(.05, P - fl), false); }
+      if (cont) { push(fl, true, nextC()); push(Math.max(.05, P - fl), false); }
       else {
         const nn = arg.split("+").map(x => parseInt(x) || 1);
         nn.forEach((cnt, gi) => { for (let i = 0; i < cnt; i++) { push(fl, true, nextC()); if (i < cnt - 1) push(gap, false); } if (gi < nn.length - 1) push(gap * 2, false); });
+        if (/\+\s*LFl/.test(L.ch)) { push(gap * 2, false); push(2, true, nextC()); }   // 南方位標識など「Q(6)+LFl」：急せん光のあとに長いせん光
         const sum = segs.reduce((a, s) => a + s.d, 0); push(Math.max(.4, P - sum), false);
       }
     }
@@ -91,14 +102,17 @@
     return sprites[rgb] = c;
   }
   function level(L, t) {
-    let tm = (t + L.phase) % L.total;
+    let tm = (t + L.phase) % L.total, prev = L.segs[L.segs.length - 1];
     for (const s of L.segs) {
       if (tm < s.d) {
-        if (!s.on) return [0, 0];
+        if (!s.on) {   // 消えた直後は灯りの余韻として少しだけ残光を出す（短いせん光を見逃しにくくする）
+          const a = prev && prev.on && s.d > .2 ? Math.max(0, 1 - tm / .7) : 0;
+          return a > 0 ? [a * a * .45, prev.c] : [0, 0];
+        }
         const e = Math.min(tm, s.d - tm), ramp = Math.min(1, e / .06);
         return [ramp, s.c];
       }
-      tm -= s.d;
+      tm -= s.d; prev = s;
     }
     return [0, 0];
   }
