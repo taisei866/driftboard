@@ -11,9 +11,10 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="lib/leaflet.css">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="design.css">
 </head>
 <body>
 <!-- アイコン（線画） -->
@@ -343,8 +344,9 @@
 <script src="lights.js"></script>
 <script src="obs.js"></script>
 <script src="ambient.js"></script>
+<script src="design.js"></script>
 <script>
-App.start(); Amb.init();
+App.start(); Amb.init(); Design.init();
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
 </body>

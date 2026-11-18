@@ -163,7 +163,7 @@ const App = {
     });
     $("#ln-x").onclick = () => this.launcher(false);
     this.show(Store.get("tab", "flight"));
-    const tick = () => { $("#hdr-clock").textContent = Fmt.hm(new Date()); };
+    const tick = () => { const d = new Date(); $("#hdr-clock").innerHTML = `<b>${Fmt.hm(d)}</b>:${String(d.getSeconds()).padStart(2, "0")}`; };
     tick(); setInterval(tick, 1000);
     $("#fs").onclick = () => this.fullscreen(true);
     document.addEventListener("pointerdown", () => this.wake(), { once: false, passive: true });
@@ -198,8 +198,9 @@ const App = {
   launcher(open) {
     const L = $("#launcher");
     if (!open) { L.hidden = true; return; }
-    $("#ln-grid").innerHTML = this.views.map(x => `
-      <div class="ln-card ${x.id === this.cur ? "on" : ""}" data-open="${x.id}" role="button" tabindex="0">
+    $("#ln-grid").innerHTML = this.views.map((x, i) => `
+      <div class="ln-card ${x.id === this.cur ? "on" : ""}" data-open="${x.id}" role="button" tabindex="0" style="--i:${i}">
+        <span class="ln-no">${String(i + 1).padStart(2, "0")}</span>
         <div class="ln-ic">${ic(x.icon)}</div>
         <div class="ln-tx"><b>${x.name}</b><small>${x.desc}</small></div>
         <button class="ln-pin ${this.pins.includes(x.id) ? "on" : ""}" data-pin="${x.id}" aria-label="${x.name}を下のバーに固定">${ic("i-pinned", "sm")}</button>
