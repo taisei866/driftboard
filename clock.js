@@ -93,16 +93,16 @@
 
     // 都市
     const now = new Date(), fs = cw < 520 ? 9.5 : Math.max(10, Math.min(13, cw / 70));
-    g.font = `500 ${fs}px "Zen Kaku Gothic New",system-ui,sans-serif`; g.textBaseline = "middle";
+    g.font = `500 ${fs}px "Noto Sans JP",system-ui,sans-serif`; g.textBaseline = "middle";
     const boxes = [];
     cities.forEach((c, i) => {
       const x = X(c.lon), y = Y(c.lat), on = i === sel;
       if (on) {
         const ph = (Date.now() % 1600) / 1600;
-        g.strokeStyle = `rgba(79,156,240,${1 - ph})`; g.lineWidth = 2;
+        g.strokeStyle = `rgba(201,201,209,${1 - ph})`; g.lineWidth = 2;
         g.beginPath(); g.arc(x, y, 6 + ph * 16, 0, 7); g.stroke();
       }
-      g.fillStyle = c.home ? "#4f9cf0" : on ? "#ffffff" : "#9aa7b8";
+      g.fillStyle = c.home ? "#c9c9d1" : on ? "#ffffff" : "#9aa7b8";
       g.beginPath(); g.arc(x, y, c.home || on ? 4.5 : 3.2, 0, 7); g.fill();
       const label = cw < 520 ? (c.home ? `${c.n} ${Fmt.hm(now, c.tz)}` : Fmt.hm(now, c.tz)) : `${c.n} ${Fmt.hm(now, c.tz)}`, tw = g.measureText(label).width, bh = fs * 1.5;
       const lx = x + tw + 14 > cw ? x - tw - 12 : x + 7;

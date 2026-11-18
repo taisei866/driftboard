@@ -88,7 +88,7 @@
     idx.forEach((i, k) => {
       const p = h.precipitation_probability[i] || 0; if (!p) return;
       const bh = p / 100 * ph * .45;
-      g.fillStyle = "rgba(79,156,240,.28)"; g.fillRect(pad + k * bw + bw * .18, top + ph - bh, bw * .64, bh);
+      g.fillStyle = "rgba(201,201,209,.28)"; g.fillRect(pad + k * bw + bw * .18, top + ph - bh, bw * .64, bh);
     });
     // 気温
     g.strokeStyle = acc; g.lineWidth = 2; g.lineJoin = "round"; g.beginPath();
@@ -96,7 +96,7 @@
     g.stroke();
     // ラベル
     const step = n > 30 ? 6 : W < 520 ? 3 : 2;
-    g.font = `500 11px "IBM Plex Mono",monospace`; g.textAlign = "center";
+    g.font = `500 11px "Inter",monospace`; g.textAlign = "center";
     idx.forEach((i, k) => {
       const x = pad + k * bw + bw / 2;
       if (k % step === 0) {

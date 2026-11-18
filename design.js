@@ -152,7 +152,7 @@ const Design = (() => {
       if (!tab || !tab.classList.contains("scroll") || tab.querySelector(".mast")) return;
       const title = (EN[v.id] || v.name).split("").map((c, k) => `<span style="animation-delay:${k * 35}ms">${c === " " ? "&nbsp;" : c}</span>`).join("");
       const m = el("header", { className: "mast" }, `<span class="mast-no">${String(i + 1).padStart(2, "0")}</span>
-        <h1 aria-label="${v.name}">${title}</h1><p>${v.name} — ${v.desc}</p>
+        <h1 aria-label="${v.name}" data-no="${String(i + 1).padStart(2, "0")}">${title}</h1><p>${v.name} — ${v.desc}</p>
         <div class="mast-meta"><b>${esc(H.name)}</b><br>${co}</div>`);
       tab.prepend(m);
     });
@@ -162,7 +162,17 @@ const Design = (() => {
     h.querySelectorAll("span").forEach(s => { s.style.animation = "none"; void s.offsetWidth; s.style.animation = ""; });
   }
 
+  /* 四隅のフレーム：右上のモード切替を文字に、右下に緯度・経度 */
+  function frame() {
+    const H = App.home;
+    $("#amb-btn").innerHTML = "<span>Night</span>"; $("#fs").innerHTML = "<span>Full</span>";
+    const co = el("div", { id: "corner-co" }, `${Math.abs(H.lat).toFixed(4)}°${H.lat >= 0 ? "N" : "S"}<br>${Math.abs(H.lon).toFixed(4)}°${H.lon >= 0 ? "E" : "W"}`);
+    $("#tabs").after(co);
+    $(".brand").innerHTML = `<i class="brand-mark"></i>Driftboard<em>夜の観測窓</em>`;
+  }
+
   function init() {
+    frame();
     document.body.append(el("div", { id: "veil" }), el("div", { id: "tab-title" }));
     masts(); bgInit(); cursor(); intro();
     addEventListener("pointermove", spotlight, { passive: true });

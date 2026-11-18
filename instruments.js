@@ -104,7 +104,7 @@ const Inst = (() => {
      宇宙：太陽系儀。惑星を今の本当の位置に置き、ドラッグで日付を進める・戻す
      ===================================================================== */
   const Orr = (() => {
-    const PL = [["Mercury", "水星", "#b7aea3", .387], ["Venus", "金星", "#f1d9a4", .723], ["Earth", "地球", "#5aa8ff", 1], ["Mars", "火星", "#ef8a5e", 1.524],
+    const PL = [["Mercury", "水星", "#b7aea3", .387], ["Venus", "金星", "#f1d9a4", .723], ["Earth", "地球", "#c9c9d1", 1], ["Mars", "火星", "#ef8a5e", 1.524],
       ["Jupiter", "木星", "#e3c296", 5.2], ["Saturn", "土星", "#ecd8a8", 9.58], ["Uranus", "天王星", "#9fe3e6", 19.2], ["Neptune", "海王星", "#6e8cff", 30.1]];
     let cv, days = 0, sel = 2, back, dragging = false;
     const rOf = a => .12 + .88 * Math.log(1 + a * 6) / Math.log(1 + 30.1 * 6);   // 外側の惑星まで1画面に収めるため対数で縮める
@@ -135,15 +135,15 @@ const Inst = (() => {
       const pts = [];
       PL.forEach(([id, ja, col, a], i) => {
         const k = rOf(a), rx = k * Rx, ry = k * Ry;
-        g.strokeStyle = i === sel ? "rgba(140,190,255,.5)" : "rgba(140,170,220,.24)"; g.lineWidth = 1; g.setLineDash(i > 3 ? [3, 4] : []);
+        g.strokeStyle = i === sel ? "rgba(201,201,209,.5)" : "rgba(140,170,220,.24)"; g.lineWidth = 1; g.setLineDash(i > 3 ? [3, 4] : []);
         g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, TAU); g.stroke(); g.setLineDash([]);
         let v; try { v = Astronomy.HelioVector(Astronomy.Body[id], when); } catch { return; }
         const ang = Math.atan2(v.y, v.x), x = cx + Math.cos(ang) * rx, y = cy - Math.sin(ang) * ry; pts.push([x, y]);
         const sz = [2.4, 3.4, 3.6, 3, 6.5, 5.8, 4.4, 4.2][i];
         if (i === 5) { g.strokeStyle = "rgba(236,216,168,.6)"; g.beginPath(); g.ellipse(x, y, sz * 2, sz * .7, -.4, 0, TAU); g.stroke(); }
-        g.fillStyle = col; g.shadowColor = col; g.shadowBlur = i === sel ? 16 : 8; g.beginPath(); g.arc(x, y, sz, 0, TAU); g.fill(); g.shadowBlur = 0;
+        g.fillStyle = col; g.shadowColor = col; g.shadowBlur = 0; g.beginPath(); g.arc(x, y, sz, 0, TAU); g.fill(); g.shadowBlur = 0;
         if (i === sel) { g.strokeStyle = "rgba(220,235,255,.9)"; g.beginPath(); g.arc(x, y, sz + 6 + Math.sin(t * 3) * 1.5, 0, TAU); g.stroke(); }
-        g.fillStyle = i === sel ? "#fff" : "rgba(200,215,240,.6)"; g.font = `${i === sel ? 12 : 10.5}px 'Zen Kaku Gothic New',sans-serif`; g.fillText(ja, x + sz + 5, y - 4);
+        g.fillStyle = i === sel ? "#fff" : "rgba(200,215,240,.6)"; g.font = `${i === sel ? 12 : 10.5}px 'Noto Sans JP',sans-serif`; g.fillText(ja, x + sz + 5, y - 4);
       });
       cv._pts = pts;
       // 地球から見た選んだ惑星の距離
@@ -206,16 +206,16 @@ const Inst = (() => {
       }
       g.putImageData(buf, 0, 0);
       // 大気のふち
-      const ag = g.createRadialGradient(N / 2, N / 2, r * .92, N / 2, N / 2, r * 1.02); ag.addColorStop(0, "rgba(90,168,255,0)"); ag.addColorStop(1, "rgba(120,190,255,.45)");
+      const ag = g.createRadialGradient(N / 2, N / 2, r * .92, N / 2, N / 2, r * 1.02); ag.addColorStop(0, "rgba(201,201,209,0)"); ag.addColorStop(1, "rgba(201,201,209,.45)");
       g.fillStyle = ag; g.beginPath(); g.arc(N / 2, N / 2, r, 0, TAU); g.fill();
       // 都市
       cities = (window.CK_CITIES || []).concat([{ n: App.home.name, tz: App.home.tz, lat: App.home.lat, lon: App.home.lon, home: true }]);
-      g.font = `${11 * dp}px 'IBM Plex Mono',monospace`; g.textBaseline = "middle";
+      g.font = `${11 * dp}px 'Inter',monospace`; g.textBaseline = "middle";
       for (const c of cities) {
         const la = c.lat * D, lo = c.lon * D - l0, cx = Math.cos(la) * Math.sin(lo), cz = Math.cos(la) * Math.cos(lo);
         const X = cx, Y = Math.sin(la) * cp - cz * spp, Z = Math.sin(la) * spp + cz * cp; if (Z < .05) continue;
         const qx = N / 2 + X * r, qy = N / 2 - Y * r;
-        g.fillStyle = c.home ? "#5aa8ff" : "rgba(255,255,255,.85)"; g.beginPath(); g.arc(qx, qy, (c.home ? 3.5 : 2.2) * dp, 0, TAU); g.fill();
+        g.fillStyle = c.home ? "#c9c9d1" : "rgba(255,255,255,.85)"; g.beginPath(); g.arc(qx, qy, (c.home ? 3.5 : 2.2) * dp, 0, TAU); g.fill();
         const tm = new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: c.tz });
         g.fillStyle = `rgba(230,240,255,${.35 + Z * .6})`; g.fillText(`${c.n} ${tm}`, qx + 6 * dp, qy);
       }

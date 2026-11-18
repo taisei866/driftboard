@@ -208,7 +208,7 @@
     ["北", "北東", "東", "南東", "南", "南西", "西", "北西"].forEach((n, i) => {
       const rel = (i * 45 - facing) * D2R, big = i % 2 === 0;
       c.font = `${big ? 700 : 400} ${big ? 15 : 11}px system-ui,sans-serif`;
-      c.fillStyle = n === "北" ? "#4f9cf0" : big ? "#e8eaed" : "#646a74";
+      c.fillStyle = n === "北" ? "#c9c9d1" : big ? "#e8eaed" : "#646a74";
       c.fillText(n, cx + (R + 12) * Math.sin(rel), cy + (R + 12) * Math.cos(rel));
     });
     c.textBaseline = "alphabetic";
@@ -287,8 +287,8 @@
         if (al > 0) {
           const [x, y] = proj(al, az);
           g.fillStyle = "#fff"; g.beginPath(); g.arc(x, y, 3, 0, 7); g.fill();
-          g.strokeStyle = "#4f9cf0"; g.lineWidth = 1.2; g.beginPath(); g.arc(x, y, 7, 0, 7); g.stroke();
-          g.fillStyle = "#4f9cf0"; g.font = "700 12px system-ui,sans-serif"; g.fillText("ISS", x + 12, y + 4);
+          g.strokeStyle = "#c9c9d1"; g.lineWidth = 1.2; g.beginPath(); g.arc(x, y, 7, 0, 7); g.stroke();
+          g.fillStyle = "#c9c9d1"; g.font = "700 12px system-ui,sans-serif"; g.fillText("ISS", x + 12, y + 4);
           bodies.push({ kind: "iss", ja: "国際宇宙ステーション", x, y, alt: al, az });
         }
       }
@@ -297,7 +297,7 @@
     const all = bodies.concat(objs);
     if (sel) {
       const o = all.find(o => o.kind === sel.kind && (o.b ? o.b === sel.b : o.i === sel.i));
-      if (o) { g.strokeStyle = "#4f9cf0"; g.lineWidth = 1.5; g.beginPath(); g.arc(o.x, o.y, 14, 0, 7); g.stroke(); sel.cur = o; }
+      if (o) { g.strokeStyle = "#c9c9d1"; g.lineWidth = 1.5; g.beginPath(); g.arc(o.x, o.y, 14, 0, 7); g.stroke(); sel.cur = o; }
     }
     g.restore();
     curObjs = all;

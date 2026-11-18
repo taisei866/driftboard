@@ -59,7 +59,7 @@
         const tw = .75 + .25 * Math.sin(s * 2.3 + i * 1.7) * Math.sin(s * 1.1 + i);
         const rad = (r.score >= 5 ? 16 : 12) * sc * tw;
         const gr = g.createRadialGradient(x, y, 0, x, y, rad);
-        gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(.18, "rgba(170,210,255,.85)"); gr.addColorStop(1, "rgba(79,156,240,0)");
+        gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(.18, "rgba(170,210,255,.85)"); gr.addColorStop(1, "rgba(201,201,209,0)");
         g.fillStyle = gr; g.beginPath(); g.arc(x, y, rad, 0, 7); g.fill();
         g.strokeStyle = `rgba(220,235,255,${.55 * tw})`; g.lineWidth = 1;
         g.beginPath(); g.moveTo(x - rad * 1.3, y); g.lineTo(x + rad * 1.3, y); g.moveTo(x, y - rad * 1.3); g.lineTo(x, y + rad * 1.3); g.stroke();
@@ -70,13 +70,13 @@
       } else {   // 昼・薄明：小さな点
         g.fillStyle = "rgba(255,255,255,.35)"; g.beginPath(); g.arc(x, y, 2.5 * sc, 0, 7); g.fill();
       }
-      if (r.s.home) { g.strokeStyle = "rgba(79,156,240,.9)"; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, 9 * sc, 0, 7); g.stroke(); }
+      if (r.s.home) { g.strokeStyle = "rgba(201,201,209,.9)"; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, 9 * sc, 0, 7); g.stroke(); }
       if (on) {
         const ph = (s % 1.6) / 1.6;
         g.strokeStyle = `rgba(255,255,255,${1 - ph})`; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, (8 + ph * 18) * sc, 0, 7); g.stroke();
       }
       if (W >= 520 || on || r.s.home) {
-        g.font = `500 ${Math.max(10, Math.min(12.5, W / 80))}px "Zen Kaku Gothic New",system-ui,sans-serif`;
+        g.font = `500 ${Math.max(10, Math.min(12.5, W / 80))}px "Noto Sans JP",system-ui,sans-serif`;
         g.fillStyle = night && clear ? "rgba(235,242,255,.95)" : "rgba(200,206,215,.6)";
         const right = x > W - 120, tw = g.measureText(r.s.n).width, lx = right ? x - 12 * sc - tw : x + 12 * sc;
         let ly = y - 6 * sc;

@@ -14,7 +14,7 @@
     map = darkMap("issmap", { minZoom: 1, maxZoom: 6 }).setView([20, H.lon], 1);
     L.marker([H.lat, H.lon], { icon: L.divIcon({ className: "", html: '<div class="home-dot"></div>', iconSize: [14, 14], iconAnchor: [7, 7] }), interactive: false }).addTo(map);
     issM = L.marker([0, 0], { icon: L.divIcon({ className: "", html: '<div class="iss-ic"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }) }).addTo(map);
-    foot = L.circle([0, 0], { radius: 1, color: "#4f9cf0", weight: 1, opacity: .5, fillOpacity: .06, interactive: false }).addTo(map);
+    foot = L.circle([0, 0], { radius: 1, color: "#c9c9d1", weight: 1, opacity: .5, fillOpacity: .06, interactive: false }).addTo(map);
     $("#sun-dots").innerHTML = SUN_IMGS.map((_, k) => `<button data-k="${k}" aria-label="${k + 1}枚目"><i></i></button>`).join("");
     $("#sun-dots").onclick = e => { const b = e.target.closest("[data-k]"); if (b) { sunHold = Date.now() + 30000; showSun(+b.dataset.k); } };
     swipe($(".sun-box"), d => { sunHold = Date.now() + 30000; showSun(sunI + d); });
@@ -94,7 +94,7 @@
     };
     const segs = [split(-50, 0), split(0, 95)];
     segs[0].forEach(s => trackL.push(L.polyline(s, { color: "#959aa3", weight: 1.2, opacity: .45, dashArray: "3 5", interactive: false }).addTo(map)));
-    segs[1].forEach(s => trackL.push(L.polyline(s, { color: "#4f9cf0", weight: 1.8, opacity: .85, interactive: false }).addTo(map)));
+    segs[1].forEach(s => trackL.push(L.polyline(s, { color: "#c9c9d1", weight: 1.8, opacity: .85, interactive: false }).addTo(map)));
   }
 
   let tickN = 0;

@@ -51,7 +51,7 @@
     L.control.zoom({ position: "bottomright" }).addTo(map);
     L.marker([H.lat, H.lon], { icon: L.divIcon({ className: "", html: '<div class="home-dot"></div>', iconSize: [14, 14], iconAnchor: [7, 7] }), interactive: false }).addTo(map);
     RINGS.forEach(km => {
-      L.circle([H.lat, H.lon], { radius: km * 1000, color: "#4f9cf0", weight: 1, opacity: .3, dashArray: "4 6", fill: false, interactive: false }).addTo(map);
+      L.circle([H.lat, H.lon], { radius: km * 1000, color: "#c9c9d1", weight: 1, opacity: .3, dashArray: "4 6", fill: false, interactive: false }).addTo(map);
       L.marker(Geo.dest(H.lat, H.lon, 0, km), { icon: L.divIcon({ className: "ring-lbl", html: km + "km", iconSize: [40, 12], iconAnchor: [20, 14] }), interactive: false }).addTo(map);
     });
     map.on("click", () => select(null));
@@ -394,27 +394,27 @@
     bgr.addColorStop(0, "#071526"); bgr.addColorStop(1, "#02050a"); g.fillStyle = bgr; g.fillRect(0, 0, W, Hh);
     // 目盛り
     g.save(); g.translate(cx, cy);
-    g.strokeStyle = "rgba(110,170,255,.16)"; g.lineWidth = 1;
+    g.strokeStyle = "rgba(201,201,209,.16)"; g.lineWidth = 1;
     for (let i = 1; i <= 4; i++) { g.beginPath(); g.arc(0, 0, R * i / 4, 0, Math.PI * 2); g.stroke(); }
     for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6; g.beginPath(); g.moveTo(Math.sin(a) * R * .06, -Math.cos(a) * R * .06); g.lineTo(Math.sin(a) * R, -Math.cos(a) * R); g.stroke(); }
-    for (let i = 0; i < 72; i++) { const a = i * Math.PI / 36, l = i % 6 ? 5 : 11; g.beginPath(); g.moveTo(Math.sin(a) * R, -Math.cos(a) * R); g.lineTo(Math.sin(a) * (R + l), -Math.cos(a) * (R + l)); g.strokeStyle = "rgba(140,190,255,.35)"; g.stroke(); }
-    g.fillStyle = "rgba(160,200,255,.55)"; g.font = "10px 'IBM Plex Mono',monospace"; g.textAlign = "center"; g.textBaseline = "middle";
+    for (let i = 0; i < 72; i++) { const a = i * Math.PI / 36, l = i % 6 ? 5 : 11; g.beginPath(); g.moveTo(Math.sin(a) * R, -Math.cos(a) * R); g.lineTo(Math.sin(a) * (R + l), -Math.cos(a) * (R + l)); g.strokeStyle = "rgba(201,201,209,.35)"; g.stroke(); }
+    g.fillStyle = "rgba(201,201,209,.55)"; g.font = "10px 'Inter',monospace"; g.textAlign = "center"; g.textBaseline = "middle";
     [["N", 0], ["E", 90], ["S", 180], ["W", 270]].forEach(([n, d]) => { const a = d * Math.PI / 180; g.fillText(n, Math.sin(a) * (R + 22) * .93, -Math.cos(a) * (R + 22) * .93); });
-    g.textAlign = "left"; g.fillStyle = "rgba(140,190,255,.4)";
+    g.textAlign = "left"; g.fillStyle = "rgba(201,201,209,.4)";
     for (let i = 1; i <= 4; i++) g.fillText(`${Math.round(rng * i / 4)}`, 4, -R * i / 4 + 9);
     // 回る光の線（扇形の残光）
     const fan = g.createConicGradient ? g.createConicGradient(sw - Math.PI / 2 - .9, 0, 0) : null;
-    if (fan) { fan.addColorStop(0, "rgba(90,168,255,0)"); fan.addColorStop(.1432, "rgba(90,168,255,.22)"); fan.addColorStop(.1433, "rgba(90,168,255,0)"); g.fillStyle = fan; g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.fill(); }
-    g.strokeStyle = "rgba(170,215,255,.9)"; g.lineWidth = 1.5; g.shadowColor = "#5aa8ff"; g.shadowBlur = 12;
+    if (fan) { fan.addColorStop(0, "rgba(201,201,209,0)"); fan.addColorStop(.1432, "rgba(201,201,209,.07)"); fan.addColorStop(.1433, "rgba(201,201,209,0)"); g.fillStyle = fan; g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.fill(); }
+    g.strokeStyle = "rgba(201,201,209,.9)"; g.lineWidth = 1.5; g.shadowColor = "#c9c9d1"; g.shadowBlur = 0;
     g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.sin(sw) * R, -Math.cos(sw) * R); g.stroke(); g.shadowBlur = 0;
     g.restore();
     // 中心（基準地点）
-    g.fillStyle = "#5aa8ff"; g.beginPath(); g.arc(cx, cy, 3, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#c9c9d1"; g.beginPath(); g.arc(cx, cy, 3, 0, Math.PI * 2); g.fill();
     // 機体：線が通った瞬間に光り、残光で消えていく
     const prevSw = rFrame.ps ?? sw; rFrame.ps = sw;
     const crossed = a => prevSw <= sw ? (a > prevSw && a <= sw) : (a > prevSw || a <= sw);
     if (now - lastTrail > 3) { lastTrail = now; for (const p of planes.values()) { const tr = trails.get(p.hex) || []; tr.push(pos(p)); if (tr.length > 14) tr.shift(); trails.set(p.hex, tr); } }
-    g.font = "10.5px 'IBM Plex Mono',monospace"; g.textBaseline = "alphabetic";
+    g.font = "10.5px 'Inter',monospace"; g.textBaseline = "alphabetic";
     for (const p of planes.values()) {
       if (!passes(p)) continue;
       const q = rXY(p); if (!q) continue;
@@ -425,7 +425,7 @@
       const tr = trails.get(p.hex) || [];
       tr.forEach((ll, i) => { const z = rXY({ cur: ll, d: p.d }); if (!z) return; g.fillStyle = `rgba(${col},${(.05 + i / tr.length * .18) * (on ? 2 : 1)})`; g.fillRect(z[0] - 1, z[1] - 1, 2, 2); });
       const a = Math.max(lv, on ? .9 : .12);
-      g.fillStyle = `rgba(${col},${a})`; g.shadowColor = `rgba(${col},1)`; g.shadowBlur = 14 * lv;
+      g.fillStyle = `rgba(${col},${a})`; g.shadowColor = `rgba(${col},1)`; g.shadowBlur = 0;
       g.beginPath(); g.arc(q[0], q[1], 2.6 + lv * 1.6, 0, Math.PI * 2); g.fill(); g.shadowBlur = 0;
       // 進行方向の短い線
       if (!ground(p.d) && p.d.track != null) { const tk = p.d.track * Math.PI / 180; g.strokeStyle = `rgba(${col},${a * .8})`; g.lineWidth = 1; g.beginPath(); g.moveTo(q[0], q[1]); g.lineTo(q[0] + Math.sin(tk) * 12, q[1] - Math.cos(tk) * 12); g.stroke(); }

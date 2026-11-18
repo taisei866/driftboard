@@ -245,7 +245,7 @@
     if (live) analyser.getByteFrequencyData(freq);
     const n = bars.length, bw = w / n;
     const grad = g.createLinearGradient(0, h, 0, 0);
-    grad.addColorStop(0, "rgba(230,176,74,.55)"); grad.addColorStop(1, "#4f9cf0");
+    grad.addColorStop(0, "rgba(230,176,74,.55)"); grad.addColorStop(1, "#c9c9d1");
     g.fillStyle = grad;
     for (let i = 0; i < n; i++) {
       const bin = Math.min(freq ? freq.length - 1 : 0, Math.floor(Math.pow(i / n, 1.6) * 100) + 1);
@@ -339,7 +339,7 @@
     const g = dg; g.setTransform(dp, 0, 0, dp, 0, 0); g.clearRect(0, 0, W, H);
     const cx = W / 2, x = lon => cx + wrap(lon - dial) / DPP;
     // 目盛り（5度ごと、30度ごとに数字）
-    g.font = "10px 'IBM Plex Mono',monospace"; g.textAlign = "center";
+    g.font = "10px 'Inter',monospace"; g.textAlign = "center";
     const span = W * DPP / 2;
     for (let l = Math.floor((dial - span) / 5) * 5; l <= dial + span; l += 5) {
       const X = cx + (l - dial) / DPP, big = ((l % 30) + 30) % 30 === 0, ww = wrap(l);
@@ -351,13 +351,13 @@
     for (const st of list) {
       const X = x(lonOf(st)); if (X < -4 || X > W + 4) continue;
       const on = cur && st.stationuuid === cur.stationuuid, d = Math.abs(X - cx), glow = Math.max(0, 1 - d / 40);
-      g.strokeStyle = on ? "rgba(255,200,90,.95)" : `rgba(120,190,255,${.35 + glow * .6})`; g.lineWidth = on ? 2 : 1.2;
+      g.strokeStyle = on ? "rgba(255,200,90,.95)" : `rgba(201,201,209,${.35 + glow * .6})`; g.lineWidth = on ? 2 : 1.2;
       g.beginPath(); g.moveTo(X, 10); g.lineTo(X, H - 30); g.stroke();
     }
     // 砂嵐の見た目
     if (noise > .02) { for (let i = 0; i < 160 * noise; i++) { g.fillStyle = `rgba(200,220,255,${Math.random() * .35 * noise})`; g.fillRect(Math.random() * W, Math.random() * (H - 26), 1.5, 1.5); } }
     // 針
-    g.strokeStyle = "#ff6b5a"; g.lineWidth = 1.6; g.shadowColor = "#ff6b5a"; g.shadowBlur = 10;
+    g.strokeStyle = "#e0e0e5"; g.lineWidth = 1.6; g.shadowColor = "#e0e0e5"; g.shadowBlur = 0;
     g.beginPath(); g.moveTo(cx, 2); g.lineTo(cx, H - 16); g.stroke(); g.shadowBlur = 0;
     // 端を暗く
     const fade = g.createLinearGradient(0, 0, W, 0);
