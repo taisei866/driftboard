@@ -164,12 +164,12 @@ const Inst = (() => {
      世界時計：指で回せる地球儀。昼と夜の境目、夜の街明かり、都市の時刻
      ===================================================================== */
   const Globe = (() => {
-    // 海岸線：Natural Earth（world-atlas, land-110m）を経度・緯度の折れ線にしたもの
-    let cv, land = null, rot = { lon: 0, lat: 22 }, spin = true, idleT, last = 0;
+    let cv, day, night, TW = 1024, TH = 512, rot = { lon: 0, lat: 22 }, spin = true, idleT, buf, bufW = 0, cities = [];
     function init() {
       cv = $("#ck-globe"); if (!cv) return;
       rot.lon = App.home.lon;
-      fetch("data/land.json").then(r => r.json()).then(d => land = d).catch(() => {});
+      const load = src => new Promise(r => { const im = new Image(); im.onload = () => { const c = document.createElement("canvas"); c.width = TW; c.height = TH; const x = c.getContext("2d"); x.drawImage(im, 0, 0, TW, TH); r(x.getImageData(0, 0, TW, TH).data); }; im.src = src; });
+      Promise.all([load("img/day.jpg"), load("img/night.jpg")]).then(([a, b]) => { day = a; night = b; });
       let y0 = null;
       cv.addEventListener("pointerdown", e => { y0 = e.clientY; spin = false; clearTimeout(idleT); cv.parentNode.classList.add("used"); });
       cv.addEventListener("pointermove", e => { if (y0 == null) return; rot.lat = clamp(rot.lat + (e.clientY - y0) * .35, -70, 70); y0 = e.clientY; });
@@ -179,58 +179,46 @@ const Inst = (() => {
     }
     function frame(n) {
       requestAnimationFrame(frame);
-      if (!cv || !live("clock") || n - last < 33) return; last = n;
-      if (spin) rot.lon += .06;
-      const [g, W, H] = fit(cv), N = Math.min(W, H), r = N / 2 - 14, cx = W / 2, cy = H / 2, D = Math.PI / 180;
-      const l0 = rot.lon * D, p0 = rot.lat * D, cp = Math.cos(p0), spp = Math.sin(p0);
-      // 経度・緯度 → 画面（正射図法）。裏側は z<0
-      const P = (lat, lon) => { const la = lat * D, lo = lon * D - l0, x = Math.cos(la) * Math.sin(lo), cz = Math.cos(la) * Math.cos(lo); return [cx + x * r, cy - (Math.sin(la) * cp - cz * spp) * r, Math.sin(la) * spp + cz * cp]; };
-      const sp = Sun.pos();
-      g.clearRect(0, 0, W, H);
-      // 夜の側：太陽と反対側の半球をわずかに暗く塗る
-      g.save(); g.beginPath(); g.arc(cx, cy, r, 0, TAU); g.clip();
-      g.fillStyle = "#0b0c10"; g.fillRect(0, 0, W, H);
-      const [ax, ay, az] = P(-sp.lat, sp.lon + 180);   // 反太陽点
-      if (az > -1) { const ng = g.createRadialGradient(ax, ay, 0, ax, ay, r * 1.6); ng.addColorStop(0, "rgba(0,0,0,.75)"); ng.addColorStop(.62, "rgba(0,0,0,.45)"); ng.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = ng; g.fillRect(0, 0, W, H); }
-      // 経緯線
-      g.strokeStyle = "rgba(224,224,229,.06)"; g.lineWidth = 1;
-      const line = pts => { g.beginPath(); let pen = false; for (const [la, lo] of pts) { const [x, y, z] = P(la, lo); if (z < 0) { pen = false; continue; } pen ? g.lineTo(x, y) : g.moveTo(x, y); pen = true; } g.stroke(); };
-      for (let lo = -180; lo < 180; lo += 30) line(Array.from({ length: 37 }, (_, i) => [-90 + i * 5, lo]));
-      for (let la = -60; la <= 60; la += 30) line(Array.from({ length: 73 }, (_, i) => [la, -180 + i * 5]));
-      // 海岸線：昼の側は月白、夜の側は沈んだグレー
-      if (land) {
-        const sx = Math.cos(sp.lat * D) * Math.cos(sp.lon * D), sy = Math.cos(sp.lat * D) * Math.sin(sp.lon * D), sz = Math.sin(sp.lat * D);
-        g.lineWidth = .9;
-        for (const ring of land) {
-          let pen = false, prevDay = null;
-          g.beginPath();
-          for (const [lo, la] of ring) {
-            const [x, y, z] = P(la, lo); if (z < 0) { pen = false; continue; }
-            const cl = Math.cos(la * D), day = cl * Math.cos(lo * D) * sx + cl * Math.sin(lo * D) * sy + Math.sin(la * D) * sz > 0;
-            if (pen && day !== prevDay) { g.strokeStyle = prevDay ? "rgba(224,224,229,.72)" : "rgba(224,224,229,.22)"; g.lineTo(x, y); g.stroke(); g.beginPath(); g.moveTo(x, y); }
-            else pen ? g.lineTo(x, y) : g.moveTo(x, y);
-            pen = true; prevDay = day;
-          }
-          g.strokeStyle = prevDay ? "rgba(224,224,229,.72)" : "rgba(224,224,229,.22)"; g.stroke();
+      if (!cv || !day || !live("clock")) return;
+      if (n - (frame.l || 0) < 40) return; frame.l = n;
+      if (spin) rot.lon += .08;
+      const S = Math.min(cv.clientWidth, cv.clientHeight), dp = Math.min(devicePixelRatio || 1, 1.5), N = Math.min(460, Math.round(S * dp));
+      if (cv.width !== N) { cv.width = cv.height = N; }
+      const g = cv.getContext("2d");
+      if (bufW !== N) { buf = g.createImageData(N, N); bufW = N; }
+      const px = buf.data, sp = Sun.pos(), D = Math.PI / 180;
+      const sx = Math.cos(sp.lat * D) * Math.cos(sp.lon * D), sy = Math.cos(sp.lat * D) * Math.sin(sp.lon * D), sz = Math.sin(sp.lat * D);
+      const l0 = rot.lon * D, p0 = rot.lat * D, cp = Math.cos(p0), spp = Math.sin(p0), r = N / 2 - 2;
+      for (let j = 0; j < N; j++) {
+        const y = (N / 2 - j) / r;
+        for (let i = 0; i < N; i++) {
+          const x = (i - N / 2) / r, rr = x * x + y * y, o = (j * N + i) * 4;
+          if (rr > 1) { px[o + 3] = 0; continue; }
+          const z = Math.sqrt(1 - rr);
+          // 正射図法の逆変換：画面上の点 → 緯度・経度
+          const lat = Math.asin(z * spp + y * cp), lon = l0 + Math.atan2(x, z * cp - y * spp);
+          const cl = Math.cos(lat), vx = cl * Math.cos(lon), vy = cl * Math.sin(lon), vz = Math.sin(lat);
+          const sun = vx * sx + vy * sy + vz * sz, k = clamp((sun + .08) / .16, 0, 1);   // 境目をなめらかに
+          let u = ((lon / D + 180) % 360 + 360) % 360 / 360 * TW | 0, v = (90 - lat / D) / 180 * TH | 0; if (v >= TH) v = TH - 1;
+          const q = (v * TW + u) * 4, shade = .55 + .45 * z;
+          px[o] = (day[q] * k * shade + night[q] * (1 - k) * 1.1); px[o + 1] = (day[q + 1] * k * shade + night[q + 1] * (1 - k) * 1.05); px[o + 2] = (day[q + 2] * k * shade + night[q + 2] * (1 - k));
+          px[o + 3] = 255;
         }
       }
-      // 昼と夜の境目（明暗境界線）を点線で
-      g.setLineDash([2, 4]); g.strokeStyle = "rgba(224,224,229,.45)";
-      const tpts = Array.from({ length: 121 }, (_, i) => { const t = i / 120 * TAU, la0 = sp.lat * D, lo0 = sp.lon * D;
-        // 太陽直下点から90°離れた大円
-        const la = Math.asin(Math.cos(la0) * Math.cos(t)), lo = lo0 + Math.atan2(Math.sin(t), -Math.sin(la0) * Math.cos(t));
-        return [la / D, lo / D]; });
-      line(tpts); g.setLineDash([]);
-      g.restore();
-      g.strokeStyle = "rgba(224,224,229,.18)"; g.beginPath(); g.arc(cx, cy, r, 0, TAU); g.stroke();
-      // 都市：点と現地時刻
-      const cities = (window.CK_CITIES || []).concat([{ n: App.home.name, tz: App.home.tz, lat: App.home.lat, lon: App.home.lon, home: true }]);
-      g.font = "300 11px Inter,'Noto Sans JP',sans-serif"; g.textBaseline = "middle";
+      g.putImageData(buf, 0, 0);
+      // 大気のふち
+      const ag = g.createRadialGradient(N / 2, N / 2, r * .92, N / 2, N / 2, r * 1.02); ag.addColorStop(0, "rgba(90,168,255,0)"); ag.addColorStop(1, "rgba(120,190,255,.45)");
+      g.fillStyle = ag; g.beginPath(); g.arc(N / 2, N / 2, r, 0, TAU); g.fill();
+      // 都市
+      cities = (window.CK_CITIES || []).concat([{ n: App.home.name, tz: App.home.tz, lat: App.home.lat, lon: App.home.lon, home: true }]);
+      g.font = `${11 * dp}px 'Inter',monospace`; g.textBaseline = "middle";
       for (const c of cities) {
-        const [x, y, z] = P(c.lat, c.lon); if (z < .08) continue;
-        g.fillStyle = c.home ? "#e0e0e5" : "rgba(224,224,229,.7)"; g.fillRect(x - (c.home ? 2 : 1.5), y - (c.home ? 2 : 1.5), c.home ? 4 : 3, c.home ? 4 : 3);
+        const la = c.lat * D, lo = c.lon * D - l0, cx = Math.cos(la) * Math.sin(lo), cz = Math.cos(la) * Math.cos(lo);
+        const X = cx, Y = Math.sin(la) * cp - cz * spp, Z = Math.sin(la) * spp + cz * cp; if (Z < .05) continue;
+        const qx = N / 2 + X * r, qy = N / 2 - Y * r;
+        g.fillStyle = c.home ? "#c9c9d1" : "rgba(255,255,255,.85)"; g.beginPath(); g.arc(qx, qy, (c.home ? 3.5 : 2.2) * dp, 0, TAU); g.fill();
         const tm = new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: c.tz });
-        g.fillStyle = `rgba(224,224,229,${.3 + z * .6})`; g.fillText(`${c.n}  ${tm}`, x + 7, y);
+        g.fillStyle = `rgba(230,240,255,${.35 + Z * .6})`; g.fillText(`${c.n} ${tm}`, qx + 6 * dp, qy);
       }
     }
     return { init };
