@@ -137,15 +137,6 @@
       // 引きの画角では光を小さく・やや控えめにして、密集した海域が白く飽和しないようにする
       const zf = z < 6 ? .22 + (z - 3) * .1 : Math.max(.55, Math.min(1.15, (z - 5) / 5));
       const base = Math.max(3, Math.min(16, 2.5 + (Lt.rng || 3) * .55)) * zf * (Lt.minor ? .7 : 1);
-      // 大きな灯台は、回る光線を描く（1周＝光り方の1周期。光線がこちらを向いた瞬間に光って見える）
-      if (z >= 8 && !Lt.minor && Lt.ch !== "F" && !/^Iso|^Oc/.test(Lt.ch)) {
-        const th = ((t + Lt.phase) / Lt.total) * Math.PI * 2 + (String(Lt.id).length % 7), len = Math.min(320, base * (8 + (Lt.rng || 8) * .9)), spread = .085;
-        const bg = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, len);
-        const al = (.1 + lv * .3) * (z >= 11 ? 1 : .7);
-        bg.addColorStop(0, `rgba(${rgb},${al})`); bg.addColorStop(1, `rgba(${rgb},0)`);
-        g.globalAlpha = 1; g.fillStyle = bg;
-        for (const k of [0, Math.PI]) { g.beginPath(); g.moveTo(p.x, p.y); g.arc(p.x, p.y, len, th + k - spread, th + k + spread); g.closePath(); g.fill(); }
-      }
       if (lv > .01) {
         const r = base * (2.4 + lv * 1.6);
         g.globalAlpha = z < 6 ? lv * .85 : lv; g.drawImage(sprite(rgb), p.x - r, p.y - r, r * 2, r * 2);
