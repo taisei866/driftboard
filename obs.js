@@ -139,6 +139,7 @@
   const lvl = sc => sc >= 5 ? "ok" : sc >= 4 ? "ok2" : sc >= 3 ? "warn" : sc >= 2 ? "" : "off";
 
   function render() {
+    window.ObsRows = rows;
     const sorted = rows.slice().sort((a, b) => (b.s.home - a.s.home) || b.score - a.score || (b.best ? 1 : 0) - (a.best ? 1 : 0));
     const top = rows.filter(r => !r.s.home && r.score >= 4).sort((a, b) => b.score - a.score || (a.cc0 ?? 100) - (b.cc0 ?? 100))[0];
     $("#obs-top").innerHTML = top

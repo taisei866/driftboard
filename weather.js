@@ -26,6 +26,7 @@
   const dirTxt = d => d == null ? "" : Geo.dir16(d);
 
   function render() {
+    if (typeof Inst !== "undefined") Inst.wx.set(data);
     const c = data.current, d = data.daily;
     const [icn, lb] = wxInfo(c.weather_code, c.is_day);
     $("#wx-place").textContent = `${App.home.name} ・ ${hh(c.time)} 時点`;

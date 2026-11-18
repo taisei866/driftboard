@@ -108,6 +108,13 @@
 
   <!-- 天気 -->
   <section id="tab-weather" class="tab scroll">
+    <div class="panel wx-window" id="wx-win">
+      <canvas id="wx-sky"></canvas>
+      <div class="ww-frame"></div>
+      <div class="ww-read"><div id="ww-time" class="eyebrow">いま</div><div id="ww-temp" class="ww-temp"></div><div id="ww-lb" class="ww-lb"></div></div>
+      <div class="ww-hint">← 左右にドラッグで48時間先の空 →</div>
+      <div id="ww-bar" class="ww-bar"><i></i></div>
+    </div>
     <div class="wx-grid">
       <div class="panel card"><div class="panel-h"><span>現在の天気</span><small id="wx-place"></small></div><div id="wx-now"><div class="empty">読み込み中…</div></div></div>
       <div class="panel card wx-chartbox">
@@ -182,6 +189,12 @@
   <!-- 宇宙 -->
   <section id="tab-space" class="tab scroll">
     <div class="sp-grid">
+      <div class="panel card wide orrery-box">
+        <div class="panel-h"><span>太陽系儀</span><small id="or-date"></small></div>
+        <canvas id="orrery"></canvas>
+        <div class="or-foot"><span id="or-info" class="small"></span><button id="or-now" class="btn sm">今日に戻る</button></div>
+        <div class="or-hint">左右にドラッグで日付を進める・戻す ・ 惑星をタップで選択</div>
+      </div>
       <div class="panel card wide" id="sp-iss">
         <div class="panel-h"><span>国際宇宙ステーション</span><small id="iss-light"></small></div>
         <div id="issmap" class="map"></div>
@@ -285,6 +298,11 @@
   <!-- 天文台 -->
   <section id="tab-obs" class="tab scroll">
     <div class="obs-wrap">
+      <div class="scope-box">
+        <canvas id="obs-scope" aria-label="望遠鏡の視界。タップで次の天文台へ"></canvas>
+        <div class="sc-read"><div id="sc-idx" class="eyebrow"></div><div id="sc-name" class="sc-name"></div><div id="sc-place" class="muted small"></div><div id="sc-meta" class="sc-meta mono"></div>
+          <div class="sc-prog"><i id="sc-bar"></i></div><div class="muted small">視界をタップで次の天文台へ</div></div>
+      </div>
       <div class="obs-mapbox">
         <canvas id="obs-map"></canvas>
         <div class="obs-legend small"><span><i class="lg-star"></i>晴れた夜</span><span><i class="lg-cloud"></i>曇った夜</span><span><i class="lg-day"></i>昼・薄明</span></div>
@@ -305,6 +323,7 @@
       </div>
       <div id="ck-sun" class="ck-sun"></div>
     </div>
+    <div class="ck-globebox"><canvas id="ck-globe"></canvas><div class="gl-hint">ドラッグで地球を回す</div></div>
     <div class="ck-mapbox"><canvas id="ck-map"></canvas></div>
     <div id="ck-cities" class="ck-grid"></div>
   </section>
@@ -352,9 +371,10 @@
 <script src="lights.js"></script>
 <script src="obs.js"></script>
 <script src="ambient.js"></script>
+<script src="instruments.js"></script>
 <script src="design.js"></script>
 <script>
-App.start(); Amb.init(); Design.init();
+App.start(); Amb.init(); Inst.init(); Design.init();
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
 </body>

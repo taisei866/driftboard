@@ -14,6 +14,7 @@
     { n: "バンコク", tz: "Asia/Bangkok", lat: 13.76, lon: 100.50, cc: "TH" },
     { n: "シドニー", tz: "Australia/Sydney", lat: -33.87, lon: 151.21, cc: "AU" }
   ];
+  window.CK_CITIES = CITIES;
   const W = 1024, Hh = 512;
   let cities, visible = false, wx = [], sel = -1, comp, dayPx, nightPx, out, trig, lastComp = 0, drawT, wxT;
 

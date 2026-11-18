@@ -421,3 +421,43 @@ body.amb .lt-tour .tr-prog{display:block}
 @media (max-width:600px){ .tn-hint{display:none} }
 #fl-range span{display:inline!important}
 .tuner.used .tn-hint{display:none}
+
+/* =====================================================================
+   計器03〜06：天気の窓・太陽系儀・地球儀・望遠鏡
+   ===================================================================== */
+.wx-window{position:relative;padding:0!important;overflow:hidden;margin-bottom:14px;height:clamp(240px,42vh,420px);border-radius:18px!important;cursor:grab;touch-action:pan-y}
+.wx-window:active{cursor:grabbing}
+#wx-sky{position:absolute;inset:0;width:100%;height:100%;display:block}
+.ww-frame{position:absolute;inset:0;pointer-events:none;border-radius:inherit;box-shadow:inset 0 0 0 10px rgba(6,9,15,.92),inset 0 0 0 11px rgba(140,170,220,.18),inset 0 0 60px rgba(0,0,0,.55);
+  background:linear-gradient(90deg,transparent calc(50% - 3px),rgba(6,9,15,.92) calc(50% - 3px),rgba(6,9,15,.92) calc(50% + 3px),transparent calc(50% + 3px)),
+             linear-gradient(0deg,transparent calc(58% - 3px),rgba(6,9,15,.92) calc(58% - 3px),rgba(6,9,15,.92) calc(58% + 3px),transparent calc(58% + 3px))}
+.ww-read{position:absolute;left:28px;bottom:26px;pointer-events:none;text-shadow:0 2px 16px rgba(0,0,0,.6)}
+.ww-read .eyebrow{color:rgba(230,240,255,.8)}
+.ww-temp{font-family:var(--mono);font-weight:300;font-size:clamp(56px,9vw,92px);line-height:1;letter-spacing:-.05em;color:#fff}
+.ww-temp small{font-size:.4em;vertical-align:.9em}
+.ww-lb{font-size:14px;color:rgba(240,245,255,.9);margin-top:4px}
+.ww-hint{position:absolute;right:24px;top:22px;font-size:11px;color:rgba(230,240,255,.7);pointer-events:none;transition:opacity .6s}
+.wx-window.used .ww-hint{opacity:0}
+.ww-bar{position:absolute;left:12px;right:12px;bottom:11px;height:2px;background:rgba(255,255,255,.12);border-radius:2px;pointer-events:none}
+.ww-bar i{display:block;height:100%;width:0;background:#fff;box-shadow:0 0 8px #fff;border-radius:2px}
+@media (max-width:600px){ .ww-read{left:20px;bottom:22px} .ww-hint{right:18px;top:18px;font-size:10px} }
+
+.orrery-box{position:relative}
+#orrery{display:block;width:100%;height:clamp(260px,46vh,480px);cursor:grab;touch-action:pan-y}
+.or-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:6px}
+#or-info b{font-size:15px;margin-right:6px}
+.or-hint{position:absolute;left:16px;top:44px;font-size:11px;color:var(--dim);pointer-events:none;transition:opacity .6s}
+.orrery-box.used .or-hint{opacity:0}
+
+.ck-globebox{position:relative;display:grid;place-items:center;margin-bottom:12px}
+#ck-globe{width:min(100%,560px,62vh);aspect-ratio:1;cursor:grab;touch-action:pan-y;filter:drop-shadow(0 0 40px rgba(90,168,255,.25))}
+.gl-hint{position:absolute;bottom:6px;font-size:11px;color:var(--dim);pointer-events:none;transition:opacity .6s}
+.ck-globebox.used .gl-hint{opacity:0}
+
+.scope-box{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,320px);gap:20px;align-items:center;margin-bottom:16px}
+#obs-scope{width:100%;max-width:520px;aspect-ratio:1;justify-self:center;cursor:pointer;filter:drop-shadow(0 0 30px rgba(90,168,255,.15))}
+.sc-name{font-size:clamp(24px,3.4vw,36px);font-weight:500;margin:6px 0 2px}
+.sc-meta{font-size:12px;color:var(--acc2);margin:10px 0}
+.sc-prog{height:2px;background:var(--line);margin:4px 0 10px;border-radius:2px;overflow:hidden}
+.sc-prog i{display:block;height:100%;width:0;background:var(--acc)}
+@media (max-width:700px){ .scope-box{grid-template-columns:minmax(0,1fr)} #obs-scope{max-width:360px} }
