@@ -81,9 +81,12 @@
     <div class="fl-wrap">
       <div class="fl-mapbox">
         <div id="fmap" class="map"></div>
+        <canvas id="fradar"></canvas>
         <div class="fl-hud">
           <div id="fl-stats" class="hud-card">読み込み中…</div>
           <div class="hud-btns">
+            <button id="fl-mode" class="btn"></button>
+            <button id="fl-range" class="btn"></button>
             <button id="fl-home" class="btn"><svg class="ic"><use href="#i-locate"/></svg><span>現在地へ戻る</span></button>
             <button id="fl-filter-btn" class="btn"><svg class="ic"><use href="#i-filter"/></svg><span>絞り込み</span></button>
           </div>
@@ -132,6 +135,11 @@
             </div>
           </div>
           <canvas id="rd-viz"></canvas>
+          <div class="tuner">
+            <div class="tn-read"><span class="tn-lbl">TUNING</span><span id="tn-freq" class="mono"></span><span id="tn-name"></span></div>
+            <canvas id="rd-dial" aria-label="選局ダイヤル。左右にドラッグして局を探します"></canvas>
+            <div class="tn-hint">ダイヤルを左右に回して選局</div>
+          </div>
           <div class="now-ctl">
             <button id="rd-play" class="btn play" aria-label="再生"><svg class="ic"><use href="#i-play"/></svg></button>
             <button id="rd-next" class="btn icon" aria-label="別の局へ" title="別の局へ"><svg class="ic"><use href="#i-next"/></svg></button>

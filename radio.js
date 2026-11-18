@@ -21,6 +21,7 @@
     map = darkMap("rmap", { minZoom: 1 }).setView([30, 140], 2);
     L.control.zoom({ position: "bottomright" }).addTo(map);
     pins = L.layerGroup().addTo(map);
+    tInit();
 
     $("#rd-tagchips").innerHTML = TAGS.map(([v, l]) => `<button class="chip" data-tag="${v}">${l}</button>`).join("");
     $("#rd-tagchips").onclick = e => { const b = e.target.closest("[data-tag]"); if (!b) return; tag = b.dataset.tag; Store.set("rdTag", tag); syncUI(); load(); };
@@ -172,6 +173,7 @@
     const my = ++token;
     clearTimeout(watchdog); silence(); playing = false;
     cur = slim(st); Store.set("rdLast", cur); renderNow(); render();
+    if (!dragging) { dial = lonOf(st); }
     if (visible && innerHeight > innerWidth) { const n = $(".panel.now"), r = n.getBoundingClientRect(); if (r.top < 60 || r.bottom > innerHeight) n.scrollIntoView({ behavior: "smooth", block: "start" }); }
     if (st.geo_lat != null && visible) map.flyTo([st.geo_lat, st.geo_long], Math.max(map.getZoom(), 4), { duration: 1.2 });
     const u = st.url_resolved || st.url;
@@ -255,6 +257,113 @@
     }
     g.globalAlpha = 1;
     if (playing && !viz) { g.fillStyle = "#646a74"; g.fillRect(0, h - 2, w, 1); }
+  }
+
+
+  /* ---------- 選局ダイヤル ----------
+     世界の局を経度の順に並べた「周波数の目盛り」。指で左右に回すと地球も一緒に回り、
+     局と局の間では砂嵐の音が鳴る。手を離すといちばん近い局に合わせて再生する */
+  let dcv, dg, dial = null, dragging = false, vel = 0, lastX = 0, lastT = 0, settleT, nctx, nGain, nFilter, tunedTo = null;
+  const DPP = .22;   // 1px あたりの経度
+  const lonOf = s => s.geo_long != null ? +s.geo_long : ((hash(s.stationuuid || s.name) % 3600) / 10 - 180);
+  const hash = t => { let h = 0; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; return Math.abs(h); };
+  const wrap = x => ((x + 540) % 360) - 180;
+  const near = () => { let best = null, bd = 1e9; for (const st of list) { const d = Math.abs(wrap(lonOf(st) - dial)); if (d < bd) { bd = d; best = st; } } return [best, bd]; };
+  function tInit() {
+    dcv = $("#rd-dial"); dg = dcv.getContext("2d");
+    dial = cur ? lonOf(cur) : App.home.lon;
+    const down = e => { dcv.parentNode.classList.add("used"); dragging = true; vel = 0; lastX = e.clientX; lastT = performance.now(); clearTimeout(settleT); noiseOn(); dcv.setPointerCapture(e.pointerId); };
+    const move = e => {
+      if (!dragging) return;
+      const now = performance.now(), dx = e.clientX - lastX; lastX = e.clientX;
+      dial = wrap(dial - dx * DPP); vel = -dx * DPP / Math.max(1, now - lastT) * 16; lastT = now;
+      spin();
+    };
+    const up = () => { if (!dragging) return; dragging = false; coast(); };
+    dcv.addEventListener("pointerdown", down); dcv.addEventListener("pointermove", move);
+    dcv.addEventListener("pointerup", up); dcv.addEventListener("pointercancel", up);
+    dcv.addEventListener("wheel", e => { e.preventDefault(); noiseOn(); dial = wrap(dial + (e.deltaX || e.deltaY) * DPP * .5); spin(); clearTimeout(settleT); settleT = setTimeout(snap, 450); }, { passive: false });
+    requestAnimationFrame(dFrame);
+  }
+  function spin() {   // 地球（地図）もダイヤルと一緒に回す
+    if (visible) map.panTo([map.getCenter().lat, dial], { animate: false });
+    const [st, d] = near(); noiseLevel(d);
+    $("#tn-name").textContent = st && d < 1.2 ? st.name : "";
+  }
+  function coast() {   // 指を離したあとは少し惰性で回ってから止まる
+    const step = () => {
+      if (dragging) return;
+      vel *= .9; dial = wrap(dial + vel); spin();
+      if (Math.abs(vel) > .05) requestAnimationFrame(step); else snap();
+    };
+    requestAnimationFrame(step);
+  }
+  function snap() {
+    const [st] = near(); if (!st) { noiseLevel(9); return; }
+    const from = dial, to = from + wrap(lonOf(st) - from), t0 = performance.now();
+    const step = t => { if (dragging) return; const k = Math.min(1, (t - t0) / 380), e = 1 - (1 - k) ** 3; dial = wrap(from + (to - from) * e); spin(); if (k < 1) requestAnimationFrame(step); else tune(st); };
+    requestAnimationFrame(step);
+  }
+  function tune(st) {
+    noiseLevel(0, .8);
+    if (cur && st.stationuuid === cur.stationuuid && playing) return;
+    tunedTo = st.stationuuid; play(st);
+  }
+  /* 砂嵐の音（ホワイトノイズを少し帯域を絞って鳴らす） */
+  function noiseOn() {
+    try {
+      if (!nctx) {
+        nctx = new (window.AudioContext || window.webkitAudioContext)();
+        const buf = nctx.createBuffer(1, nctx.sampleRate * 2, nctx.sampleRate), ch = buf.getChannelData(0);
+        for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1;
+        const src = nctx.createBufferSource(); src.buffer = buf; src.loop = true;
+        nFilter = nctx.createBiquadFilter(); nFilter.type = "bandpass"; nFilter.frequency.value = 2200; nFilter.Q.value = .7;
+        nGain = nctx.createGain(); nGain.gain.value = 0;
+        src.connect(nFilter).connect(nGain).connect(nctx.destination); src.start();
+      }
+      if (nctx.state === "suspended") nctx.resume();
+    } catch {}
+  }
+  let noise = 0;
+  function noiseLevel(d, fade = .08) {
+    noise = Math.min(1, Math.max(0, (d - .25) / 1.6));
+    if (nGain) nGain.gain.setTargetAtTime(noise * vol * .28, nctx.currentTime, fade);
+    if (nFilter) nFilter.frequency.setTargetAtTime(1400 + noise * 2200, nctx.currentTime, .1);
+    [aV, aD].forEach(a => { if (a === active) a.volume = vol * (1 - noise * .9); });
+  }
+  function dFrame(t) {
+    requestAnimationFrame(dFrame);
+    if (!visible || !dcv) return;
+    const dp = Math.min(devicePixelRatio || 1, 2), W = dcv.clientWidth, H = dcv.clientHeight;
+    if (dcv.width !== Math.round(W * dp)) { dcv.width = W * dp; dcv.height = H * dp; }
+    const g = dg; g.setTransform(dp, 0, 0, dp, 0, 0); g.clearRect(0, 0, W, H);
+    const cx = W / 2, x = lon => cx + wrap(lon - dial) / DPP;
+    // 目盛り（5度ごと、30度ごとに数字）
+    g.font = "10px 'IBM Plex Mono',monospace"; g.textAlign = "center";
+    const span = W * DPP / 2;
+    for (let l = Math.floor((dial - span) / 5) * 5; l <= dial + span; l += 5) {
+      const X = cx + (l - dial) / DPP, big = ((l % 30) + 30) % 30 === 0, ww = wrap(l);
+      g.strokeStyle = `rgba(140,180,240,${big ? .5 : .2})`; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(X, H - 14); g.lineTo(X, H - 14 - (big ? 12 : 6)); g.stroke();
+      if (big) { g.fillStyle = "rgba(150,180,230,.55)"; g.fillText(`${Math.abs(ww)}°${ww >= 0 ? "E" : "W"}`.replace("180°W", "180°"), X, H - 2); }
+    }
+    // 局の印
+    for (const st of list) {
+      const X = x(lonOf(st)); if (X < -4 || X > W + 4) continue;
+      const on = cur && st.stationuuid === cur.stationuuid, d = Math.abs(X - cx), glow = Math.max(0, 1 - d / 40);
+      g.strokeStyle = on ? "rgba(255,200,90,.95)" : `rgba(120,190,255,${.35 + glow * .6})`; g.lineWidth = on ? 2 : 1.2;
+      g.beginPath(); g.moveTo(X, 10); g.lineTo(X, H - 30); g.stroke();
+    }
+    // 砂嵐の見た目
+    if (noise > .02) { for (let i = 0; i < 160 * noise; i++) { g.fillStyle = `rgba(200,220,255,${Math.random() * .35 * noise})`; g.fillRect(Math.random() * W, Math.random() * (H - 26), 1.5, 1.5); } }
+    // 針
+    g.strokeStyle = "#ff6b5a"; g.lineWidth = 1.6; g.shadowColor = "#ff6b5a"; g.shadowBlur = 10;
+    g.beginPath(); g.moveTo(cx, 2); g.lineTo(cx, H - 16); g.stroke(); g.shadowBlur = 0;
+    // 端を暗く
+    const fade = g.createLinearGradient(0, 0, W, 0);
+    fade.addColorStop(0, "rgba(8,12,20,1)"); fade.addColorStop(.12, "rgba(8,12,20,0)"); fade.addColorStop(.88, "rgba(8,12,20,0)"); fade.addColorStop(1, "rgba(8,12,20,1)");
+    g.fillStyle = fade; g.fillRect(0, 0, W, H);
+    $("#tn-freq").textContent = `${Math.abs(dial).toFixed(1)}°${dial >= 0 ? "E" : "W"}`;
   }
 
   App.reg("radio", {

@@ -66,6 +66,7 @@
     $("#fl-list").onclick = e => { const r = e.target.closest("[data-k]"); if (r) { select(r.dataset.k); const p = planes.get(r.dataset.k); if (p) map.panTo(pos(p)); } };
     $("#fl-alert").onclick = e => { const k = e.currentTarget.dataset.k; if (k) { select(k); const p = planes.get(k); if (p) map.panTo(pos(p)); } };
     setInterval(tick, 1000);
+    rInit();
     poll();
   }
 
@@ -332,6 +333,108 @@
     a.hidden = false;
     a.querySelector(".alert-x").onclick = e => { e.stopPropagation(); a.hidden = true; };
     clearTimeout(alertT); alertT = setTimeout(() => a.hidden = true, 10000);
+  }
+
+
+  /* ---------- レーダー表示 ----------
+     基準地点を中心に光の線が回り、線が通った機体だけが光って、ゆっくり残光を残して消えていく。
+     機体の位置は地図表示と同じデータ（planes）を使う */
+  const RANGES = [25, 50, 100, 200, 400];
+  let radar = Store.get("flRadar", true), rng = Store.get("flRange", 100), rcv, rg, rRaf, trails = new Map(), lastTrail = 0;
+  const SWEEP = 4.2;   // 1周の秒数
+  function rInit() {
+    rcv = $("#fradar"); rg = rcv.getContext("2d");
+    const resize = () => { const b = rcv.parentNode.getBoundingClientRect(), dp = Math.min(devicePixelRatio || 1, 2); rcv.width = b.width * dp; rcv.height = b.height * dp; rcv.style.width = b.width + "px"; rcv.style.height = b.height + "px"; rg.setTransform(dp, 0, 0, dp, 0, 0); };
+    new ResizeObserver(resize).observe(rcv.parentNode); resize();
+    $("#fl-mode").onclick = () => setRadar(!radar);
+    $("#fl-range").onclick = () => { rng = RANGES[(RANGES.indexOf(rng) + 1) % RANGES.length]; Store.set("flRange", rng); rangeUI(); };
+    rcv.addEventListener("wheel", e => { e.preventDefault(); const i = RANGES.indexOf(rng) + (e.deltaY > 0 ? 1 : -1); rng = RANGES[Math.max(0, Math.min(RANGES.length - 1, i))]; Store.set("flRange", rng); rangeUI(); }, { passive: false });
+    let pinch = null;
+    rcv.addEventListener("touchstart", e => { if (e.touches.length === 2) pinch = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); }, { passive: true });
+    rcv.addEventListener("touchmove", e => {
+      if (!pinch || e.touches.length !== 2) return;
+      const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY), i = RANGES.indexOf(rng);
+      if (d / pinch > 1.35 && i > 0) { rng = RANGES[i - 1]; pinch = d; rangeUI(); } else if (pinch / d > 1.35 && i < RANGES.length - 1) { rng = RANGES[i + 1]; pinch = d; rangeUI(); }
+    }, { passive: true });
+    rcv.addEventListener("touchend", () => { pinch = null; Store.set("flRange", rng); });
+    rcv.addEventListener("click", e => {
+      const r = rcv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top; let best = null, bd = 28;
+      for (const p of planes.values()) { if (!passes(p)) continue; const q = rXY(p); if (!q) continue; const d = Math.hypot(q[0] - x, q[1] - y); if (d < bd) { bd = d; best = p.hex; } }
+      select(best);
+    });
+    setRadar(radar, true);
+  }
+  function setRadar(v, quiet) {
+    radar = v; Store.set("flRadar", v);
+    $(".fl-mapbox").classList.toggle("radar", v);
+    $("#fl-mode").innerHTML = v ? `${ic("i-globe")}<span>地図</span>` : `${ic("i-orbit")}<span>レーダー</span>`;
+    rangeUI();
+    cancelAnimationFrame(rRaf); if (v) rRaf = requestAnimationFrame(rFrame);
+    if (!v && !quiet) setTimeout(() => map.invalidateSize(), 50);
+  }
+  function rangeUI() { const b = $("#fl-range"); b.hidden = !radar; b.innerHTML = `<span class="mono">${rng}km</span>`; }
+  let geo = null;
+  function rXY(p) {
+    if (!geo) return null;
+    const [a, o] = pos(p), c = geo.c;
+    const dx = (o - c.lon) * Math.cos(c.lat * Math.PI / 180) * 111.32, dy = (a - c.lat) * 110.57;
+    const k = Math.hypot(dx, dy); if (k > rng * 1.04) return null;
+    return [geo.cx + dx * geo.s, geo.cy - dy * geo.s, k, (Math.atan2(dx, dy) + Math.PI * 2) % (Math.PI * 2)];
+  }
+  function rFrame(t) {
+    rRaf = requestAnimationFrame(rFrame);
+    if (!visible || !radar) return;
+    const W = rcv.clientWidth, Hh = rcv.clientHeight, R = Math.min(W, Hh) / 2 - 18, cx = W / 2, cy = Hh / 2, now = t / 1000;
+    geo = { c: ref(), cx, cy, s: R / rng };
+    const sw = (now / SWEEP % 1) * Math.PI * 2;   // 北から時計回り
+    const g = rg;
+    g.clearRect(0, 0, W, Hh);
+    // 画面の地：中心ほどわずかに明るい
+    const bgr = g.createRadialGradient(cx, cy, 0, cx, cy, R * 1.25);
+    bgr.addColorStop(0, "#071526"); bgr.addColorStop(1, "#02050a"); g.fillStyle = bgr; g.fillRect(0, 0, W, Hh);
+    // 目盛り
+    g.save(); g.translate(cx, cy);
+    g.strokeStyle = "rgba(110,170,255,.16)"; g.lineWidth = 1;
+    for (let i = 1; i <= 4; i++) { g.beginPath(); g.arc(0, 0, R * i / 4, 0, Math.PI * 2); g.stroke(); }
+    for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6; g.beginPath(); g.moveTo(Math.sin(a) * R * .06, -Math.cos(a) * R * .06); g.lineTo(Math.sin(a) * R, -Math.cos(a) * R); g.stroke(); }
+    for (let i = 0; i < 72; i++) { const a = i * Math.PI / 36, l = i % 6 ? 5 : 11; g.beginPath(); g.moveTo(Math.sin(a) * R, -Math.cos(a) * R); g.lineTo(Math.sin(a) * (R + l), -Math.cos(a) * (R + l)); g.strokeStyle = "rgba(140,190,255,.35)"; g.stroke(); }
+    g.fillStyle = "rgba(160,200,255,.55)"; g.font = "10px 'IBM Plex Mono',monospace"; g.textAlign = "center"; g.textBaseline = "middle";
+    [["N", 0], ["E", 90], ["S", 180], ["W", 270]].forEach(([n, d]) => { const a = d * Math.PI / 180; g.fillText(n, Math.sin(a) * (R + 22) * .93, -Math.cos(a) * (R + 22) * .93); });
+    g.textAlign = "left"; g.fillStyle = "rgba(140,190,255,.4)";
+    for (let i = 1; i <= 4; i++) g.fillText(`${Math.round(rng * i / 4)}`, 4, -R * i / 4 + 9);
+    // 回る光の線（扇形の残光）
+    const fan = g.createConicGradient ? g.createConicGradient(sw - Math.PI / 2 - .9, 0, 0) : null;
+    if (fan) { fan.addColorStop(0, "rgba(90,168,255,0)"); fan.addColorStop(.1432, "rgba(90,168,255,.22)"); fan.addColorStop(.1433, "rgba(90,168,255,0)"); g.fillStyle = fan; g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.fill(); }
+    g.strokeStyle = "rgba(170,215,255,.9)"; g.lineWidth = 1.5; g.shadowColor = "#5aa8ff"; g.shadowBlur = 12;
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.sin(sw) * R, -Math.cos(sw) * R); g.stroke(); g.shadowBlur = 0;
+    g.restore();
+    // 中心（基準地点）
+    g.fillStyle = "#5aa8ff"; g.beginPath(); g.arc(cx, cy, 3, 0, Math.PI * 2); g.fill();
+    // 機体：線が通った瞬間に光り、残光で消えていく
+    const prevSw = rFrame.ps ?? sw; rFrame.ps = sw;
+    const crossed = a => prevSw <= sw ? (a > prevSw && a <= sw) : (a > prevSw || a <= sw);
+    if (now - lastTrail > 3) { lastTrail = now; for (const p of planes.values()) { const tr = trails.get(p.hex) || []; tr.push(pos(p)); if (tr.length > 14) tr.shift(); trails.set(p.hex, tr); } }
+    g.font = "10.5px 'IBM Plex Mono',monospace"; g.textBaseline = "alphabetic";
+    for (const p of planes.values()) {
+      if (!passes(p)) continue;
+      const q = rXY(p); if (!q) continue;
+      if (crossed(q[3]) || p.hit == null) p.hit = now - (p.hit == null ? ((sw - q[3] + Math.PI * 2) % (Math.PI * 2)) / (Math.PI * 2) * SWEEP : 0);
+      const age = now - p.hit, lv = Math.max(0, Math.exp(-age / 2.2)), on = sel === p.hex, em = emerg(p.d);
+      const col = em ? "255,110,95" : ground(p.d) ? "150,165,190" : "150,205,255";
+      // 航跡（点々）
+      const tr = trails.get(p.hex) || [];
+      tr.forEach((ll, i) => { const z = rXY({ cur: ll, d: p.d }); if (!z) return; g.fillStyle = `rgba(${col},${(.05 + i / tr.length * .18) * (on ? 2 : 1)})`; g.fillRect(z[0] - 1, z[1] - 1, 2, 2); });
+      const a = Math.max(lv, on ? .9 : .12);
+      g.fillStyle = `rgba(${col},${a})`; g.shadowColor = `rgba(${col},1)`; g.shadowBlur = 14 * lv;
+      g.beginPath(); g.arc(q[0], q[1], 2.6 + lv * 1.6, 0, Math.PI * 2); g.fill(); g.shadowBlur = 0;
+      // 進行方向の短い線
+      if (!ground(p.d) && p.d.track != null) { const tk = p.d.track * Math.PI / 180; g.strokeStyle = `rgba(${col},${a * .8})`; g.lineWidth = 1; g.beginPath(); g.moveTo(q[0], q[1]); g.lineTo(q[0] + Math.sin(tk) * 12, q[1] - Math.cos(tk) * 12); g.stroke(); }
+      if (a > .22) { g.fillStyle = `rgba(${col},${Math.min(1, a + .1)})`; g.fillText(csOf(p.d), q[0] + 8, q[1] - 6); g.fillStyle = `rgba(${col},${a * .6})`; g.fillText(ground(p.d) ? "GND" : "FL" + String(Math.round((altFt(p.d) || 0) / 100)).padStart(3, "0"), q[0] + 8, q[1] + 6); }
+      if (on) {   // 選んだ機体：四隅の括弧で囲む
+        g.strokeStyle = "rgba(200,230,255,.95)"; g.lineWidth = 1.2; const b = 11;
+        [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([sx, sy]) => { g.beginPath(); g.moveTo(q[0] + sx * b, q[1] + sy * (b - 5)); g.lineTo(q[0] + sx * b, q[1] + sy * b); g.lineTo(q[0] + sx * (b - 5), q[1] + sy * b); g.stroke(); });
+      }
+    }
   }
 
   App.reg("flight", {
