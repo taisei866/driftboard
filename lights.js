@@ -323,7 +323,7 @@
     cv = $("#lcanvas"); g = cv.getContext("2d");
     map.on("resize", resize);
     map.on("moveend", () => { clearTimeout(moveT); moveT = setTimeout(load, 700); });
-    map.on("dragstart", () => { if (touring && !flying) tour(false); });   // 自分で地図を動かしたらツアーを止める
+    map.on("dragstart", () => { if (touring && !flying) pauseAuto(); });   // 自分で地図を動かしたら自動送りを一時停止
     $("#lt-tour-btn").onclick = () => tour(!touring);
     $("#lt-filter-btn").onclick = e => { e.stopPropagation(); const b = $("#lt-filter"); b.hidden = !b.hidden; if (!b.hidden) filterUI(); };
     document.addEventListener("click", e => { const b = $("#lt-filter"); if (b && !b.hidden && !b.contains(e.target)) b.hidden = true; });
@@ -364,7 +364,9 @@
     ["ポートランド・ヘッド灯台", "アメリカ・メイン州", 43.6231, -70.2078],
     ["ペギーズ・ポイント灯台", "カナダ・ノバスコシア州", 44.4917, -63.9183]
   ];
-  const STAY = 28000;   // 1か所に滞在する時間
+  // 自動で次の灯台へ進む設定（間隔は秒。0 なら手動で進める）
+  let TC = Object.assign({ auto: 30 }, Store.get("ltTour", {}));
+  const stay = () => TC.auto * 1000;
   let touring = false, tourT, flying = false, hist = [], hi = -1, tileCache = new Map();
 
   /* 次に訪ねる灯台を選ぶ：
@@ -413,14 +415,45 @@
       <div class="tour-h"><span class="muted small">灯台めぐり ・ <span class="mono">${hi + 1}</span>か所目</span>
         <div class="tour-btns"><button class="btn sm icon" id="tr-prev" aria-label="前の灯台" ${hi <= 0 ? "disabled" : ""}>${ic("i-chev", "sm rot90")}</button>
         <button class="btn sm icon" id="tr-next" aria-label="次の灯台">${ic("i-chev", "sm rotm90")}</button>
+        <button class="btn sm tr-auto ${TC.auto ? "on" : ""}" id="tr-auto" aria-label="自動で次へ" title="自動で次の灯台へ（押すたびに間隔を変更）">${ic(TC.auto ? "i-play" : "i-pause", "sm")}<span class="mono">${TC.auto ? TC.auto + "秒" : "手動"}</span></button>
         <button class="btn sm" id="tr-stop">${ic("i-x", "sm")}終了</button></div></div>
       <div class="tour-name">${esc(st.name || (Lt && Lt.name) || "名前のない灯台")}</div>
       <div class="muted small">${esc(st.place || "場所を調べています…")}</div>
+      <div class="tr-prog"><i id="tr-bar"></i></div>
       <p class="lt-desc">${Lt ? (Lt.known ? esc(describe(Lt)) : `光り方が未登録のため、一般的な光り方（${esc(describe(Lt))}）で表示しています`) + (Lt.rng ? `。光は約${Math.round(Lt.rng * 1.852)}km先まで届きます` : "") : flying ? "移動中…" : "灯台を探しています…"}</p>`;
     c.hidden = false;
     $("#tr-prev").onclick = () => { if (hi > 0) visit(hi - 1); };
     $("#tr-next").onclick = () => next();
     $("#tr-stop").onclick = () => tour(false);
+    $("#tr-auto").onclick = () => {   // 30秒 → 60秒 → 15秒 → 手動 → 30秒…
+      const seq = [30, 60, 15, 0]; TC.auto = seq[(seq.indexOf(TC.auto) + 1) % seq.length]; Store.set("ltTour", TC);
+      tourCard(st, Lt); if (!flying) arm();
+    };
+    bar();
+  }
+  /* 次の灯台への待ち時間を進み具合の線で見せる */
+  let armAt = 0, paused = false;
+  function arm() {
+    clearTimeout(tourT); paused = false;
+    if (!touring || !TC.auto) { armAt = 0; bar(); return; }
+    armAt = Date.now(); tourT = setTimeout(next, stay()); bar();
+  }
+  function bar() {
+    const b = $("#tr-bar"); if (!b) return;
+    b.parentNode.classList.toggle("paused", paused);
+    if (paused) return;
+    if (!armAt || !TC.auto) { b.style.transition = "none"; b.style.width = "0%"; return; }
+    const left = Math.max(0, stay() - (Date.now() - armAt)), done = 1 - left / stay();
+    b.style.transition = "none"; b.style.width = done * 100 + "%"; void b.offsetWidth;
+    b.style.transition = `width ${left}ms linear`; b.style.width = "100%";
+  }
+  // 地図を自分で動かしたら、めぐりは止めずに自動送りだけ一時停止（20秒放っておくと再開）
+  let resumeT;
+  function pauseAuto() {
+    if (!touring || flying || !TC.auto) return;
+    clearTimeout(tourT); clearTimeout(resumeT); paused = true;
+    const b = $("#tr-bar"); if (b) { b.style.width = getComputedStyle(b).width; b.style.transition = "none"; b.parentNode.classList.add("paused"); }
+    resumeT = setTimeout(arm, 20000);
   }
   async function next() {
     clearTimeout(tourT);
@@ -431,7 +464,7 @@
     visit(hist.length - 1);
   }
   function visit(i) {
-    clearTimeout(tourT);
+    clearTimeout(tourT); clearTimeout(resumeT); armAt = 0; paused = false;
     hi = i; const st = hist[i];
     flying = true; sel = null; info(null);
     tourCard(st, null);
@@ -443,11 +476,11 @@
       for (let k = 0; busy && k < 60; k++) await new Promise(r => setTimeout(r, 250));   // 読み込み中なら終わるまで待つ
       if (!touring || hist[hi] !== st) return;
       sel = nearest(st.lat, st.lon); tourCard(st, sel);
-      tourT = setTimeout(next, STAY);
+      arm();
     });
   }
   function tour(on) {
-    touring = on; clearTimeout(tourT);
+    touring = on; clearTimeout(tourT); clearTimeout(resumeT); armAt = 0; paused = false;
     $("#lt-tour-btn").classList.toggle("on", on);
     if (on) { hist = []; hi = -1; next(); } else { $("#lt-tour").hidden = true; sel = null; }
   }
